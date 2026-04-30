@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Adicionar material - Controle de Estoque</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="container">
+      <header class="page-header">
+        <div>
+          <span class="hero-badge">Adicionar</span>
+          <h1>Adicionar material</h1>
+          <p>Cadastrar novo material para o estoque escolar.</p>
+        </div>
+      </header>
+
+      <nav class="menu">
+        <a href="index.html">Início</a>
+        <a href="add.html" class="active">Adicionar</a>
+        <a href="withdraw.html">Retirar</a>
+        <a href="estoque.html">Estoque</a>
+        <a href="historico.html">Histórico</a>
+        <a href="export.html">Exportar</a>
+      </nav>
+      <div id="serverStatus" class="server-status">Verificando status do servidor...</div>
+
+      <section class="card form-card">
+        <form id="addForm" class="form-stack">
+          <label>
+            Nome do material
+            <input type="text" id="materialName" placeholder="Ex: Apostila de Inglês" required />
+          </label>
+          <label>
+            Módulo
+            <select id="materialModule" required>
+              <option value="">Selecione</option>
+              <option value="Informática">Informática</option>
+              <option value="Inglês">Inglês</option>
+            </select>
+          </label>
+          <label>
+            Quantidade
+            <input type="number" id="materialQuantity" min="1" value="1" required />
+          </label>
+          <label>
+            Responsável
+            <input type="text" id="addResponsible" placeholder="Nome do responsável" required />
+          </label>
+          <button type="submit" class="primary-button">Salvar material</button>
+        </form>
+      </section>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

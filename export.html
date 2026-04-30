@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exportar dados - Controle de Estoque</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="container">
+      <header class="page-header">
+        <div>
+          <span class="hero-badge">Exportar</span>
+          <h1>Exportar dados</h1>
+          <p>Salve o estoque atual e/ou o histórico em arquivos que podem ser abertos no Excel.</p>
+        </div>
+      </header>
+
+      <nav class="menu">
+        <a href="index.html">Início</a>
+        <a href="add.html">Adicionar</a>
+        <a href="withdraw.html">Retirar</a>
+        <a href="estoque.html">Estoque</a>
+        <a href="historico.html">Histórico</a>
+        <a href="export.html" class="active">Exportar</a>
+      </nav>
+      <div id="serverStatus" class="server-status">Verificando status do servidor...</div>
+
+      <section class="card form-card">
+        <form id="exportForm" class="form-stack">
+          <label class="checkbox-label">
+            <input type="checkbox" id="exportInventory" checked />
+            Exportar estoque atual
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="exportHistory" checked />
+            Exportar histórico de movimentações
+          </label>
+          <button type="submit" class="primary-button">Gerar arquivo(s)</button>
+          <div id="exportFeedback" class="info"></div>
+        </form>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

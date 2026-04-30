@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Controle de Estoque</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="container">
+      <header class="hero">
+        <span class="hero-badge">Controle escolar</span>
+        <h1>Estoque de materiais</h1>
+        <p>Registre itens por módulo, controle a saída para alunos e acompanhe o histórico.</p>
+      </header>
+
+      <nav class="menu">
+        <a href="index.html" class="active">Início</a>
+        <a href="add.html">Adicionar</a>
+        <a href="withdraw.html">Retirar</a>
+        <a href="estoque.html">Estoque</a>
+        <a href="historico.html">Histórico</a>
+        <a href="export.html">Exportar</a>
+      </nav>
+      <div id="serverStatus" class="server-status">Verificando status do servidor...</div>
+
+      <section class="stats-grid">
+        <article class="stat-card">
+          <span class="stat-label">Materiais cadastrados</span>
+          <strong id="totalMaterials">0</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Quantidade total</span>
+          <strong id="totalQuantity">0</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Movimentações registradas</span>
+          <strong id="totalWithdrawals">0</strong>
+        </article>
+      </section>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Estoque - Controle de Estoque</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="container">
+      <header class="page-header">
+        <div>
+          <span class="hero-badge">Estoque</span>
+          <h1>Estoque atual</h1>
+          <p>Visualizar todos os materiais disponíveis no estoque.</p>
+        </div>
+      </header>
+
+      <nav class="menu">
+        <a href="index.html">Início</a>
+        <a href="add.html">Adicionar</a>
+        <a href="withdraw.html">Retirar</a>
+        <a href="estoque.html" class="active">Estoque</a>
+        <a href="historico.html">Histórico</a>
+        <a href="export.html">Exportar</a>
+      </nav>
+      <div id="serverStatus" class="server-status">Verificando status do servidor...</div>
+
+      <section class="card full-width">
+        <div class="section-header">
+          <h2>Estoque</h2>
+          <span class="section-note">Lista de materiais cadastrados.</span>
+        </div>
+        <div id="inventoryMessage" class="info"></div>
+        <table id="inventoryTable">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Módulo</th>
+              <th>Quantidade</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
