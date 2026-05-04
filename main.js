@@ -7,6 +7,7 @@ function createWindow() {
     height: 820,
     minWidth: 920,
     minHeight: 680,
+    icon: path.join(__dirname, "Logo", "logo-prepara.ico"),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

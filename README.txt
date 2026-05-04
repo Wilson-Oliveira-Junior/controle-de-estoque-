@@ -29,27 +29,41 @@ Servidor local recomendado
 Para que vários computadores compartilhem os mesmos dados, use o servidor como backend central.
 
 1. Acesse o servidor Windows onde o projeto ficará instalado.
-2. Copie o projeto da pasta de rede para uma pasta local no servidor:
-   ```powershell
-   New-Item -ItemType Directory -Force C:\ControleEstoque
-   robocopy \\192.168.10.66\pedagogico C:\ControleEstoque /MIR
+2. Copie o projeto para uma pasta local no servidor (ex: C:\Users\professor\Desktop\ControleEstoque).
+3. Instale as dependências no servidor:
+   ```cmd
+   npm install
    ```
-3. Entre nessa pasta local do servidor:
-   ```powershell
-   Set-Location C:\ControleEstoque
+4. Instale o PM2 para rodar o servidor em background (sem deixar CMD aberto):
+   ```cmd
+   npm install -g pm2
    ```
-4. Instale as dependências no servidor:
-   ```powershell
-   npm.cmd install
+5. Inicie o servidor com PM2:
+   ```cmd
+   pm2 start server.js --name ControleEstoque
+   pm2 save
    ```
-5. Inicie o backend do servidor:
-   ```powershell
-   npm.cmd run server
+6. Configure o início automático com o Windows (executar como Administrador):
+   ```cmd
+   schtasks /create /tn "ControleEstoque Server" /tr "pm2 resurrect" /sc onstart /ru SYSTEM /f
    ```
-6. O serviço ficará disponível em:
-   ```text
+7. Libere a porta 3000 no firewall do servidor (executar como Administrador):
+   ```cmd
+   netsh advfirewall firewall add rule name="ControleEstoque API" dir=in action=allow protocol=TCP localport=3000 profile=any
+   ```
+8. O serviço ficará disponível em:
+   ```
    http://192.168.10.66:3000
    ```
+
+Comandos úteis do PM2
+---------------------
+```cmd
+pm2 status                     # ver se o servidor está rodando
+pm2 restart ControleEstoque    # reiniciar
+pm2 stop ControleEstoque       # parar
+pm2 logs ControleEstoque       # ver erros/logs
+```
 
 O que deve existir na pasta para o app rodar
 -------------------------------------------
@@ -115,7 +129,9 @@ A página `export.html` permite gerar um único arquivo `controle-estoque.xlsx` 
 
 Observações
 -----------
-- Os dados podem ser salvos em um servidor local via API.
+- O servidor usa PM2 para ficar ativo em background e reiniciar automaticamente com o Windows.
+- Os dados são persistidos em `database.sqlite` na pasta do servidor.
 - O app está configurado para usar o servidor em `http://192.168.10.66:3000/api`.
+- Se o servidor mudar de IP, atualize `API_BASE_URL` em `app.js` e reempacote.
 - Para reempacotar, mantenha `electron` e `electron-packager` instalados.
-- Se desejar, posso também fornecer instruções para transformar este projeto em um instalador Windows.
+- O ícone do app usa `Logo/logo-prepara.ico` gerado a partir do logo da Prepara.

@@ -1,14 +1,14 @@
 :root {
-  --bg: #eef4fb;
+  --bg: #fdf6f6;
   --surface: #ffffff;
-  --surface-soft: #f8fafc;
-  --text: #1f2937;
-  --muted: #64748b;
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
-  --success: #16a34a;
+  --surface-soft: #fff6f6;
+  --text: #1b2024;
+  --muted: #6b6b6b;
+  --primary: #e3272c;
+  --primary-dark: #a5141c;
+  --success: #198754;
   --danger: #dc2626;
-  --border: #e2e8f0;
+  --border: #f2e4e4;
   --shadow: 0 20px 68px rgba(15, 23, 42, 0.12);
 }
 
@@ -20,7 +20,7 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background: radial-gradient(circle at top, #ffffff 0%, #eef4fb 40%, #f5f8ff 100%);
+  background: radial-gradient(circle at top, #ffffff 0%, #fde9ea 35%, #f8eef0 100%);
   color: var(--text);
 }
 
@@ -33,15 +33,49 @@ body {
   margin: 0 auto;
 }
 
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 22px;
+  margin-bottom: 18px;
+  border-radius: 24px;
+  background: rgba(227, 39, 44, 0.12);
+  border: 1px solid rgba(227, 39, 44, 0.18);
+}
+
+.topbar img {
+  height: 42px;
+  width: auto;
+  display: block;
+}
+
+.brand-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.brand-title strong {
+  color: var(--primary-dark);
+  font-size: 1rem;
+}
+
+.brand-title span {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 .hero {
   display: grid;
   gap: 18px;
   padding: 30px 30px 24px;
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(96, 165, 250, 0.08));
-  border: 1px solid rgba(37, 99, 235, 0.15);
+  background: linear-gradient(135deg, rgba(227, 39, 44, 0.16), rgba(255, 237, 239, 0.9));
+  border: 1px solid rgba(227, 39, 44, 0.18);
   border-radius: 28px;
   margin-bottom: 24px;
-  box-shadow: 0 20px 50px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 20px 50px rgba(227, 39, 44, 0.08);
 }
 
 .hero-badge {
@@ -50,7 +84,7 @@ body {
   gap: 0.5rem;
   padding: 8px 16px;
   border-radius: 999px;
-  background: rgba(37, 99, 235, 0.16);
+  background: rgba(227, 39, 44, 0.16);
   color: var(--primary-dark);
   font-size: 0.85rem;
   font-weight: 700;
@@ -92,8 +126,8 @@ body {
 
 .menu a.active,
 .menu a:hover {
-  background: rgba(37, 99, 235, 0.14);
-  border-color: rgba(37, 99, 235, 0.3);
+  background: rgba(227, 39, 44, 0.14);
+  border-color: rgba(227, 39, 44, 0.3);
   color: var(--primary-dark);
 }
 

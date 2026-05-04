@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "server": "node server.js",
-    "package-win": "electron-packager . ControleEstoque --platform=win32 --arch=x64 --out=dist --overwrite"
+    "package-win": "electron-packager . ControleEstoque --platform=win32 --arch=x64 --icon=Logo/logo-prepara.ico --out=dist --overwrite"
   },
   "devDependencies": {
     "electron": "^26.0.0",
