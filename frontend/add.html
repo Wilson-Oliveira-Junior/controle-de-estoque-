@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cursos - Controle de Apostilas</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <link href="https://cdn.datatables.net/2.0.8/css/dataTables.bootstrap5.css" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="container">
+      <div class="topbar">
+        <img src="../assets/Logo/logo-prepara.png" alt="Prepara logo" />
+        <div class="brand-title">
+          <strong>Prepara Controle</strong>
+          <span>Cadastro de cursos</span>
+        </div>
+      </div>
+      <header class="page-header">
+        <div>
+          <span class="hero-badge">Cursos</span>
+          <h1>Cadastrar curso</h1>
+          <p>Informe o nome do curso e a carga horária total para calcular o acompanhamento semanal.</p>
+        </div>
+      </header>
+
+      <nav class="menu">
+        <a href="index.html">Início</a>
+        <a href="users.html">Alunos</a>
+        <a href="add.html" class="active">Cursos</a>
+        <a href="withdraw.html">Acompanhamento</a>
+        <a href="estoque.html">Progresso</a>
+        <a href="historico.html">Calendário e histórico</a>
+        <a href="export.html">Exportar</a>
+      </nav>
+      <div id="serverStatus" class="server-status">Verificando status do servidor...</div>
+
+      <section class="card form-card">
+        <div class="form-stack">
+          <label>
+            Quem está alterando (obrigatório)
+            <input type="text" id="changedBy" placeholder="Nome de quem está salvando/editando/apagando" required />
+          </label>
+        </div>
+      </section>
+
+      <section class="card form-card">
+        <form id="addForm" class="form-stack">
+          <label>
+            Nome do curso
+            <input type="text" id="courseName" placeholder="Ex: Excel 2021" required />
+          </label>
+          <label>
+            Carga horária total
+            <input type="number" id="courseHours" min="1" step="1" value="16" required />
+          </label>
+          <button type="submit" class="primary-button">Salvar curso</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="section-header">
+          <h2>Cursos cadastrados</h2>
+          <span class="section-note">Lista atual de cursos disponíveis para acompanhamento.</span>
+        </div>
+        <div id="coursesMessage" class="info"></div>
+        <table id="coursesTable">
+          <thead>
+            <tr>
+              <th>Curso</th>
+              <th>Carga horária</th>
+              <th>Criado em</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.datatables.net/2.0.8/js/dataTables.js"></script>
+  <script src="https://cdn.datatables.net/2.0.8/js/dataTables.bootstrap5.js"></script>
+  <script src="apostila-app.js"></script>
+</body>
+</html>

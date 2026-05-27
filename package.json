@@ -2,11 +2,12 @@
   "name": "controle-estoque",
   "version": "1.0.0",
   "description": "Sistema de controle de estoque escolar com executável.",
-  "main": "main.js",
+  "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
-    "server": "node server.js",
-    "package-win": "electron-packager . ControleEstoque --platform=win32 --arch=x64 --icon=Logo/logo-prepara.ico --out=dist --overwrite"
+    "server": "node backend/server.js",
+    "import-students": "node backend/import-students.js",
+    "package-win": "electron-packager . ControleEstoque --platform=win32 --arch=x64 --icon=assets/Logo/logo-prepara.ico --out=dist --overwrite"
   },
   "devDependencies": {
     "electron": "^26.0.0",

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Acompanhamento - Controle de Apostilas</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <link href="https://cdn.datatables.net/2.0.8/css/dataTables.bootstrap5.css" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="container">
+      <div class="topbar">
+        <img src="../assets/Logo/logo-prepara.png" alt="Prepara logo" />
+        <div class="brand-title">
+          <strong>Prepara Controle</strong>
+          <span>Cadastro de acompanhamento semanal</span>
+        </div>
+      </div>
+      <header class="page-header">
+        <div>
+          <span class="hero-badge">Acompanhamento</span>
+          <h1>Registrar controle do curso</h1>
+          <p>Vincule um aluno a um curso e registre a data inicial para o sistema calcular progresso, 90% e 100% automaticamente.</p>
+        </div>
+      </header>
+
+      <nav class="menu">
+        <a href="index.html">Início</a>
+        <a href="users.html">Alunos</a>
+        <a href="add.html">Cursos</a>
+        <a href="withdraw.html" class="active">Acompanhamento</a>
+        <a href="estoque.html">Progresso</a>
+        <a href="historico.html">Calendário e histórico</a>
+        <a href="export.html">Exportar</a>
+      </nav>
+      <div id="serverStatus" class="server-status">Verificando status do servidor...</div>
+
+      <div class="content-grid">
+        <div class="main-stack">
+          <section class="card form-card">
+            <form id="withdrawForm" class="form-stack">
+              <div class="section-header">
+                <h2>Novo acompanhamento</h2>
+                <span class="meta-pill"><i class="bi bi-journal-check"></i> Cadastro guiado</span>
+              </div>
+              <label>
+                Aluno importado
+                <select id="studentSelect">
+                  <option value="">Selecione um aluno importado (opcional)</option>
+                </select>
+              </label>
+              <label>
+                Curso
+                <select id="courseSelect" required>
+                  <option value="">Selecione um curso</option>
+                </select>
+              </label>
+              <label>
+                Nome do aluno
+                <input type="text" id="studentName" placeholder="Nome do aluno" required />
+              </label>
+              <div class="content-grid content-grid-inline">
+                <label>
+                  Data inicial
+                  <input type="date" id="startDate" required />
+                </label>
+                <label>
+                  Horas por semana
+                  <input type="number" id="weeklyHours" min="1" step="1" value="2" required />
+                </label>
+              </div>
+              <label>
+                Responsável
+                <input type="text" id="controlResponsible" placeholder="Nome do responsável" required />
+              </label>
+              <label>
+                Observações
+                <input type="text" id="controlNotes" placeholder="Ex: turma manhã, acompanhamento pedagógico" />
+              </label>
+              <button type="submit" class="primary-button">Salvar acompanhamento</button>
+            </form>
+          </section>
+        </div>
+
+        <div class="sidebar-stack">
+          <section class="card helper-card">
+            <div class="form-stack">
+              <label>
+                Quem está alterando (obrigatório)
+                <input type="text" id="changedBy" placeholder="Nome de quem está salvando/editando/apagando" required />
+              </label>
+            </div>
+          </section>
+
+          <section class="card helper-card">
+            <div class="section-header">
+              <h2>Aluno selecionado</h2>
+              <span class="meta-pill"><i class="bi bi-person-badge"></i> Banco importado</span>
+            </div>
+            <div id="selectedStudentDetails" class="helper-list">
+              Selecione um aluno importado para preencher os dados automaticamente.
+            </div>
+          </section>
+
+          <section class="card helper-card">
+            <h2>Como usar</h2>
+            <ul class="helper-list">
+              <li>Escolha um aluno importado para preencher nome e responsável.</li>
+              <li>Selecione o curso correto antes de salvar.</li>
+              <li>Se ainda não houver acompanhamento, a lista abaixo ficará vazia.</li>
+            </ul>
+          </section>
+        </div>
+      </div>
+
+      <section class="card table-card full-width-card">
+        <div class="section-header">
+          <h2>Acompanhamentos cadastrados</h2>
+          <span class="section-note">Controles já salvos no sistema.</span>
+        </div>
+        <div id="controlsMessage" class="info"></div>
+        <div class="table-wrap">
+          <table id="controlsTable">
+            <thead>
+              <tr>
+                <th>Curso</th>
+                <th>Aluno</th>
+                <th>Início</th>
+                <th>Horas/semana</th>
+                <th>Responsável</th>
+                <th>Observações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.datatables.net/2.0.8/js/dataTables.js"></script>
+  <script src="https://cdn.datatables.net/2.0.8/js/dataTables.bootstrap5.js"></script>
+  <script src="apostila-app.js"></script>
+</body>
+</html>

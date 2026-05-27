@@ -3,3 +3,10 @@ dist/
 .DS_Store
 npm-debug.log
 
+# Sensitive local data (never commit)
+data/import/**
+data/database.sqlite
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+

@@ -7,7 +7,7 @@ function createWindow() {
     height: 820,
     minWidth: 920,
     minHeight: 680,
-    icon: path.join(__dirname, "Logo", "logo-prepara.ico"),
+    icon: path.join(__dirname, "..", "assets", "Logo", "logo-prepara.ico"),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -15,7 +15,7 @@ function createWindow() {
     }
   });
 
-  mainWindow.loadFile(path.join(__dirname, "index.html"));
+  mainWindow.loadFile(path.join(__dirname, "..", "frontend", "index.html"));
   mainWindow.setMenuBarVisibility(false);
 }
 
