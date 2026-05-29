@@ -166,6 +166,49 @@ body {
   color: #0d4fd4;
 }
 
+.menu-dropdown {
+  position: relative;
+}
+
+.menu-dropdown > a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.menu-dropdown > a.active,
+.menu-dropdown > a:hover {
+  background: rgba(15, 98, 254, 0.1);
+  border-color: rgba(15, 98, 254, 0.35);
+  color: #0d4fd4;
+}
+
+.menu-dropdown .dropdown-menu {
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 8px;
+}
+
+.menu-dropdown .dropdown-item {
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.menu-dropdown .dropdown-item.active,
+.menu-dropdown .dropdown-item:active {
+  background: rgba(15, 98, 254, 0.12);
+  color: #0d4fd4;
+}
+
 .server-status {
   display: inline-flex;
   align-items: center;
@@ -301,6 +344,172 @@ body {
   padding-bottom: 4px;
 }
 
+.student-modal {
+  border: 1px solid rgba(15, 98, 254, 0.16);
+  border-radius: 26px;
+  overflow: hidden;
+  box-shadow: 0 30px 70px rgba(11, 29, 62, 0.22);
+}
+
+.student-modal-header {
+  background: linear-gradient(135deg, #0f62fe 0%, #2d7dff 55%, #66a4ff 100%);
+  color: #ffffff;
+  border-bottom: 0;
+  padding: 22px 24px;
+}
+
+.student-modal-header .btn-close {
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+}
+
+.student-modal-kicker {
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 800;
+  opacity: 0.9;
+}
+
+.student-edit-form {
+  display: grid;
+  gap: 18px;
+}
+
+.student-modal-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f4f8ff 0%, #eef4ff 100%);
+  border: 1px solid rgba(15, 98, 254, 0.12);
+}
+
+.student-modal-summary span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin-bottom: 4px;
+}
+
+.student-modal-summary strong {
+  display: block;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.student-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.student-form-grid .wide {
+  grid-column: span 2;
+}
+
+.form-field {
+  display: grid;
+  gap: 6px;
+}
+
+.form-field > span {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.student-modal-footer {
+  background: #f7faff;
+  border-top: 1px solid var(--border);
+  padding: 18px 24px 24px;
+}
+
+.student-modal-footer .btn-primary {
+  background: linear-gradient(135deg, #0f62fe, #2d7dff);
+  border-color: transparent;
+  box-shadow: 0 12px 24px rgba(15, 98, 254, 0.25);
+}
+
+.student-modal-footer .btn-primary:hover {
+  background: linear-gradient(135deg, #0d54dd, #246fef);
+}
+
+.table-scroll-sync {
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 16px;
+  margin: 0 0 8px;
+  scrollbar-width: thin;
+}
+
+.table-scroll-sync-inner {
+  height: 1px;
+}
+
+.table-scroll-sync::-webkit-scrollbar {
+  height: 12px;
+}
+
+.table-scroll-sync::-webkit-scrollbar-thumb {
+  background: rgba(15, 98, 254, 0.35);
+  border-radius: 999px;
+}
+
+.table-scroll-sync::-webkit-scrollbar-track {
+  background: rgba(15, 98, 254, 0.08);
+  border-radius: 999px;
+}
+
+#studentsTable_wrapper {
+  overflow-x: auto;
+  width: 100%;
+  max-width: 100%;
+}
+
+#studentsTable {
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
+
+#studentsTable_wrapper .dt-layout-table,
+#studentsTable_wrapper .dt-layout-row,
+#studentsTable_wrapper .dt-layout-cell {
+  width: 100%;
+  max-width: 100%;
+}
+
+#studentsTable_wrapper .dt-layout-table {
+  overflow-x: auto;
+}
+
+#studentsTable_wrapper .dt-layout-cell {
+  min-width: 0;
+}
+
+.rules-generate-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.rules-filter-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+#holidayRulesTable select {
+  min-width: 88px;
+  padding: 8px 10px;
+}
+
 .form-stack {
   display: grid;
   gap: 18px;
@@ -416,12 +625,48 @@ table {
   margin-top: 12px;
 }
 
+@media (max-width: 992px) {
+  .student-form-grid,
+  .student-modal-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .student-form-grid .wide {
+    grid-column: auto;
+  }
+}
+
 th,
 td {
-  padding: 14px 16px;
+  padding: 10px 12px;
   text-align: left;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
+}
+
+#studentsTable th,
+#studentsTable td {
+  white-space: nowrap;
+}
+
+#studentsTable td:first-child,
+#studentsTable td:nth-child(3) {
+  white-space: normal;
+  min-width: 160px;
+}
+
+#studentsTable td:nth-child(2),
+#studentsTable td:nth-child(4),
+#studentsTable td:nth-child(5),
+#studentsTable td:nth-child(6),
+#studentsTable td:nth-child(7),
+#studentsTable td:nth-child(8),
+#studentsTable td:nth-child(9),
+#studentsTable td:nth-child(10),
+#studentsTable td:nth-child(11),
+#studentsTable td:nth-child(12),
+#studentsTable td:nth-child(13) {
+  text-align: center;
 }
 
 thead {
@@ -445,6 +690,39 @@ tr:hover {
 .info {
   margin-top: 12px;
   color: var(--muted);
+}
+
+.projection-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.projection-status-overrun {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+
+.projection-status-late {
+  color: #1d4ed8;
+  background: #dbeafe;
+  border-color: #bfdbfe;
+}
+
+.projection-status-done {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #bbf7d0;
+}
+
+.projection-status-default {
+  color: #374151;
+  background: #f3f4f6;
+  border-color: #e5e7eb;
 }
 
 .section-header {
@@ -509,5 +787,13 @@ tr:hover {
   .split-card,
   .page-shell {
     gap: 18px;
+  }
+
+  .rules-generate-form {
+    grid-template-columns: 1fr;
+  }
+
+  .rules-filter-form {
+    grid-template-columns: 1fr;
   }
 }

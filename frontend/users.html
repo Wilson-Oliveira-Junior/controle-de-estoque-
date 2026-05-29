@@ -13,6 +13,83 @@
   <div class="page-shell">
     <div class="container">
       <div class="topbar">
+
+      <div class="modal fade" id="studentEditModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+          <div class="modal-content student-modal">
+            <div class="modal-header student-modal-header">
+              <div>
+                <p class="student-modal-kicker">Edição do aluno</p>
+                <h2 class="modal-title fs-4 mb-0">Atualizar dados cadastrais e acompanhamento</h2>
+              </div>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+              <form id="studentEditForm" class="student-edit-form">
+                <input type="hidden" id="studentEditId" />
+
+                <div class="student-modal-summary">
+                  <div>
+                    <span>Aluno selecionado</span>
+                    <strong id="studentEditSummaryName">-</strong>
+                  </div>
+                  <div>
+                    <span>Última atualização</span>
+                    <strong id="studentEditSummaryUpdated">-</strong>
+                  </div>
+                </div>
+
+                <div class="student-form-grid">
+                  <label class="form-field">
+                    <span>Nome do aluno</span>
+                    <input type="text" id="studentEditName" class="form-control" />
+                  </label>
+                  <label class="form-field">
+                    <span>Telefone</span>
+                    <input type="text" id="studentEditPhone" class="form-control" />
+                  </label>
+                  <label class="form-field wide">
+                    <span>Responsável</span>
+                    <input type="text" id="studentEditResponsible" class="form-control" />
+                  </label>
+                  <label class="form-field">
+                    <span>Horas contratadas</span>
+                    <input type="text" id="studentEditContractedHours" class="form-control" inputmode="decimal" />
+                  </label>
+                  <label class="form-field">
+                    <span>Horas realizadas</span>
+                    <input type="text" id="studentEditCompletedHours" class="form-control" inputmode="decimal" />
+                  </label>
+                  <label class="form-field">
+                    <span>Data de início</span>
+                    <input type="date" id="studentEditRegisterStartDate" class="form-control" />
+                  </label>
+                  <label class="form-field">
+                    <span>Data de status</span>
+                    <input type="date" id="studentEditStatusStartDate" class="form-control" />
+                  </label>
+                  <label class="form-field">
+                    <span>Faltas</span>
+                    <input type="text" id="studentEditAbsences" class="form-control" inputmode="numeric" />
+                  </label>
+                  <label class="form-field">
+                    <span>Última presença</span>
+                    <input type="date" id="studentEditLastPresence" class="form-control" />
+                  </label>
+                  <label class="form-field wide">
+                    <span>Alterado por</span>
+                    <input type="text" id="studentEditChangedBy" class="form-control" placeholder="Nome de quem está editando" />
+                  </label>
+                </div>
+              </form>
+            </div>
+            <div class="modal-footer student-modal-footer">
+              <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+              <button type="button" id="studentEditSaveButton" class="btn btn-primary">Salvar alterações</button>
+            </div>
+          </div>
+        </div>
+      </div>
         <img src="../assets/Logo/logo-prepara.png" alt="Prepara logo" />
         <div class="brand-title">
           <strong>Prepara Controle</strong>
@@ -31,9 +108,14 @@
         <a href="index.html">Início</a>
         <a href="users.html" class="active">Alunos</a>
         <a href="add.html">Cursos</a>
-        <a href="withdraw.html">Acompanhamento</a>
-        <a href="estoque.html">Progresso</a>
-        <a href="historico.html">Calendário e histórico</a>
+        <div class="menu-dropdown dropdown">
+          <a href="estoque.html" class="dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false">Controle</a>
+          <div class="dropdown-menu">
+            <a class="dropdown-item" href="withdraw.html">Acompanhamento</a>
+            <a class="dropdown-item" href="estoque.html">Progresso</a>
+            <a class="dropdown-item" href="historico.html">Calendário e histórico</a>
+          </div>
+        </div>
         <a href="export.html">Exportar</a>
       </nav>
       <div id="serverStatus" class="server-status">Verificando status do servidor...</div>
@@ -44,22 +126,31 @@
           <span class="section-note">Dados de contato e acompanhamento mais recentes.</span>
         </div>
         <div id="studentsMessage" class="info"></div>
-        <table id="studentsTable">
-          <thead>
-            <tr>
-              <th>Aluno</th>
-              <th>Responsável</th>
-              <th>Telefone</th>
-              <th>Status</th>
-              <th>Faltas</th>
-              <th>Última presença</th>
-              <th>Contratado</th>
-              <th>Realizado</th>
-              <th>Atualizado em</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+        <div class="table-scroll-sync" aria-hidden="true">
+          <div class="table-scroll-sync-inner"></div>
+        </div>
+        <div class="table-wrap">
+          <table id="studentsTable">
+            <thead>
+              <tr>
+                <th>Aluno</th>
+                <th>Início</th>
+                <th>Responsável</th>
+                <th>Telefone</th>
+                <th>Status</th>
+                <th>Faltas</th>
+                <th>Última presença</th>
+                <th>Contratado</th>
+                <th>Realizado</th>
+                <th>Restante</th>
+                <th>Previsão final</th>
+                <th>Ações</th>
+                <th>Atualizado em</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </section>
     </div>
   </div>

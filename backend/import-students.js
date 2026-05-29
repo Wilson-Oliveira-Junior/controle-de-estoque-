@@ -180,8 +180,12 @@ function toStudentRecord(row, sourceFile) {
   if (!rawStudentName) return null;
   const studentName = toDisplayName(rawStudentName);
 
-  const contractedHours = parseNumber(pickFirst(row, ["contratado", "contratou"]));
-  const completedHours = parseNumber(pickFirst(row, ["realizado", "fez"]));
+  const contractedHours = parseNumber(
+    pickFirst(row, ["contratado", "contratou", "horas contratadas", "horas_contratadas"])
+  );
+  const completedHours = parseNumber(
+    pickFirst(row, ["realizado", "fez", "horas consumidas", "horas_consumidas"])
+  );
   const hoursRemaining = parseNumber(pickFirst(row, ["horas que faltam"]));
   const installmentsRemaining = parseNumber(pickFirst(row, ["parcelas que faltam"]));
   const additionalQuantity = parseNumber(pickFirst(row, ["quantidade adicional"]));
@@ -197,7 +201,7 @@ function toStudentRecord(row, sourceFile) {
   const notes = pickFirst(row, ["observacoes", "observações"]);
 
   const attendanceStatus = pickFirst(row, ["status"]);
-  const statusStartDate = parseDate(pickFirst(row, ["data inicio", "data inicial"]));
+  const statusStartDate = parseDate(pickFirst(row, ["data inicio", "data inicial", "data de inicio", "data de início"]));
   const contractDaysSinceStart = parseNumber(pickFirst(row, ["dias desde lancamento contrato"]));
   const absencesCount = parseNumber(pickFirst(row, ["qtd faltas"]));
   const lastPresenceDate = parseDate(pickFirst(row, ["data ultima presenca"]));
@@ -205,7 +209,9 @@ function toStudentRecord(row, sourceFile) {
 
   const contractStartDate = parseDate(pickFirst(row, ["data de inicio de contrato"]));
   const projectedEndDate = parseDate(pickFirst(row, ["previsao de finalizacao", "previsão de finalização", "data final"]));
-  const registerStartDate = parseDate(pickFirst(row, ["data inicial"]));
+  const registerStartDate = parseDate(
+    pickFirst(row, ["data inicial", "data inicio", "data de inicio", "data de início"])
+  ) || statusStartDate || contractStartDate;
   const registerCreatedDate = parseDate(pickFirst(row, ["data cadastro"]));
   const registerEndDate = parseDate(pickFirst(row, ["data final"]));
 

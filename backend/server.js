@@ -72,6 +72,22 @@ async function initDb() {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS holiday_rules (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      day INTEGER,
+      month INTEGER,
+      type TEXT NOT NULL,
+      municipio TEXT,
+      uf TEXT,
+      blocks_school INTEGER NOT NULL DEFAULT 1,
+      data_movel INTEGER NOT NULL DEFAULT 0,
+      movable_rule TEXT,
+      offset_days INTEGER,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS calendar_vacations (
       id TEXT PRIMARY KEY,
       start_date TEXT NOT NULL,
@@ -94,6 +110,14 @@ async function initDb() {
   await ensureColumn(db, "course_controls", "student_id", "student_id TEXT");
   await ensureColumn(db, "course_controls", "updated_at", "updated_at TEXT");
   await ensureColumn(db, "course_catalog", "updated_at", "updated_at TEXT");
+  await ensureColumn(db, "calendar_holidays", "holiday_type", "holiday_type TEXT");
+  await ensureColumn(db, "calendar_holidays", "municipio", "municipio TEXT");
+  await ensureColumn(db, "calendar_holidays", "uf", "uf TEXT");
+  await ensureColumn(db, "calendar_holidays", "source_rule_id", "source_rule_id TEXT");
+  await ensureColumn(db, "calendar_holidays", "generated_year", "generated_year INTEGER");
+  await ensureColumn(db, "holiday_rules", "blocks_school", "blocks_school INTEGER NOT NULL DEFAULT 1");
+  await ensureColumn(db, "holiday_rules", "weekday", "weekday INTEGER");
+  await ensureColumn(db, "holiday_rules", "nth_in_month", "nth_in_month INTEGER");
 
   const hasStudentRegistry = await db.get(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'student_registry'"
@@ -108,7 +132,20 @@ async function initDb() {
     await ensureColumn(db, "student_registry", "absences_count", "absences_count REAL");
     await ensureColumn(db, "student_registry", "last_presence_date", "last_presence_date TEXT");
     await ensureColumn(db, "student_registry", "updated_at", "updated_at TEXT");
+
+    await db.run(
+      `
+        UPDATE student_registry
+        SET register_start_date = status_start_date
+        WHERE
+          (register_start_date IS NULL OR TRIM(register_start_date) = '')
+          AND status_start_date IS NOT NULL
+          AND TRIM(status_start_date) <> ''
+      `
+    );
   }
+
+  await ensureDefaultHolidayRules(db);
 
   return db;
 }
@@ -182,6 +219,243 @@ function addDays(dateString, days) {
   return date.toISOString().slice(0, 10);
 }
 
+function toIsoDateFromUtc(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function addDaysToIso(dateString, days) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return toIsoDateFromUtc(date);
+}
+
+function easterSunday(year) {
+  // Meeus/Jones/Butcher algorithm (Gregorian calendar)
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+async function ensureDefaultHolidayRules(db) {
+  const now = new Date().toISOString();
+  const defaults = [
+    { name: "Confraternização Universal", day: 1, month: 1, type: "NACIONAL", municipio: null, uf: null, blocksSchool: 1, dataMovel: 0, movableRule: null, offsetDays: null },
+    { name: "Tiradentes", day: 21, month: 4, type: "NACIONAL", municipio: null, uf: null, blocksSchool: 1, dataMovel: 0, movableRule: null, offsetDays: null },
+    { name: "Dia do Trabalho", day: 1, month: 5, type: "NACIONAL", municipio: null, uf: null, blocksSchool: 1, dataMovel: 0, movableRule: null, offsetDays: null },
+    { name: "Independência do Brasil", day: 7, month: 9, type: "NACIONAL", municipio: null, uf: null, blocksSchool: 1, dataMovel: 0, movableRule: null, offsetDays: null },
+    { name: "Nossa Senhora Aparecida", day: 12, month: 10, type: "NACIONAL", municipio: null, uf: null, blocksSchool: 1, dataMovel: 0, movableRule: null, offsetDays: null },
+    { name: "Finados", day: 2, month: 11, type: "NACIONAL", municipio: null, uf: null, blocksSchool: 1, dataMovel: 0, movableRule: null, offsetDays: null },
+    { name: "Proclamação da República", day: 15, month: 11, type: "NACIONAL", municipio: null, uf: null, blocksSchool: 1, dataMovel: 0, movableRule: null, offsetDays: null },
+    { name: "Natal", day: 25, month: 12, type: "NACIONAL", municipio: null, uf: null, blocksSchool: 1, dataMovel: 0, movableRule: null, offsetDays: null },
+    { name: "Paixão de Cristo", day: null, month: null, type: "NACIONAL", municipio: null, uf: null, blocksSchool: 1, dataMovel: 1, movableRule: "EASTER_OFFSET", offsetDays: -2 },
+    { name: "Páscoa", day: null, month: null, type: "NACIONAL", municipio: null, uf: null, blocksSchool: 1, dataMovel: 1, movableRule: "EASTER_OFFSET", offsetDays: 0 },
+    { name: "Carnaval (Segunda-feira)", day: null, month: null, type: "FACULTATIVO", municipio: null, uf: null, blocksSchool: 0, dataMovel: 1, movableRule: "EASTER_OFFSET", offsetDays: -48 },
+    { name: "Carnaval (Terça-feira)", day: null, month: null, type: "FACULTATIVO", municipio: null, uf: null, blocksSchool: 0, dataMovel: 1, movableRule: "EASTER_OFFSET", offsetDays: -47 },
+    { name: "Corpus Christi", day: null, month: null, type: "NACIONAL", municipio: null, uf: null, blocksSchool: 1, dataMovel: 1, movableRule: "EASTER_OFFSET", offsetDays: 60 },
+    { name: "Revolução Constitucionalista", day: 9, month: 7, type: "ESTADUAL", municipio: null, uf: "SP", blocksSchool: 1, dataMovel: 0, movableRule: null, offsetDays: null },
+    { name: "Emancipação Político-Administrativa de Paulínia", day: 28, month: 2, type: "MUNICIPAL", municipio: "Paulínia", uf: "SP", blocksSchool: 1, dataMovel: 0, movableRule: null, offsetDays: null },
+    { name: "Sagrado Coração de Jesus (Padroeiro de Paulínia)", day: null, month: null, type: "MUNICIPAL", municipio: "Paulínia", uf: "SP", blocksSchool: 1, dataMovel: 1, movableRule: "EASTER_OFFSET", offsetDays: 68 },
+    { name: "Dia dos Namorados", day: 12, month: 6, type: "COMEMORATIVA", municipio: null, uf: null, blocksSchool: 0, dataMovel: 0, movableRule: null, offsetDays: null },
+    { name: "Dia das Mães", day: null, month: 5, type: "COMEMORATIVA", municipio: null, uf: null, blocksSchool: 0, dataMovel: 1, movableRule: "NTH_WEEKDAY_OF_MONTH", offsetDays: null, weekday: 0, nthInMonth: 2 },
+    { name: "Dia dos Pais", day: null, month: 8, type: "COMEMORATIVA", municipio: null, uf: null, blocksSchool: 0, dataMovel: 1, movableRule: "NTH_WEEKDAY_OF_MONTH", offsetDays: null, weekday: 0, nthInMonth: 2 }
+  ];
+
+  for (const rule of defaults) {
+    const existing = await db.get(
+      `
+        SELECT id
+        FROM holiday_rules
+        WHERE
+          name = ?
+          AND type = ?
+          AND COALESCE(municipio, '') = COALESCE(?, '')
+          AND COALESCE(uf, '') = COALESCE(?, '')
+      `,
+      rule.name,
+      rule.type,
+      rule.municipio,
+      rule.uf
+    );
+
+    if (existing) {
+      await db.run(
+        "UPDATE holiday_rules SET blocks_school = ? WHERE id = ?",
+        rule.blocksSchool,
+        existing.id
+      );
+      continue;
+    }
+
+    await db.run(
+      `
+        INSERT INTO holiday_rules (
+          id, name, day, month, type, municipio, uf, blocks_school, data_movel, movable_rule, offset_days, weekday, nth_in_month, active, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+      `,
+      createId("holiday-rule"),
+      rule.name,
+      rule.day,
+      rule.month,
+      rule.type,
+      rule.municipio,
+      rule.uf,
+      rule.blocksSchool,
+      rule.dataMovel,
+      rule.movableRule,
+      rule.offsetDays,
+      rule.weekday ?? null,
+      rule.nthInMonth ?? null,
+      now
+    );
+  }
+
+  await db.run(
+    `
+      DELETE FROM calendar_holidays
+      WHERE source_rule_id IN (
+        SELECT id
+        FROM holiday_rules
+        WHERE COALESCE(blocks_school, 1) = 0
+      )
+    `
+  );
+}
+
+function nthWeekdayOfMonth(year, month, weekday, nthInMonth) {
+  const firstDay = new Date(Date.UTC(year, month - 1, 1));
+  const firstWeekday = firstDay.getUTCDay();
+  const delta = (weekday - firstWeekday + 7) % 7;
+  const day = 1 + delta + (nthInMonth - 1) * 7;
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  if (date.getUTCMonth() !== month - 1) {
+    return "";
+  }
+
+  return toIsoDateFromUtc(date);
+}
+
+function ruleDateForYear(rule, year) {
+  if (!Number(rule.data_movel)) {
+    if (!rule.day || !rule.month) return "";
+    return `${year}-${String(rule.month).padStart(2, "0")}-${String(rule.day).padStart(2, "0")}`;
+  }
+
+  if (rule.movable_rule === "EASTER_OFFSET") {
+    const easter = easterSunday(year);
+    return addDaysToIso(easter, Number(rule.offset_days || 0));
+  }
+
+  if (rule.movable_rule === "NTH_WEEKDAY_OF_MONTH") {
+    const month = Number(rule.month || 0);
+    const weekday = Number(rule.weekday);
+    const nthInMonth = Number(rule.nth_in_month);
+    if (!month || !Number.isInteger(weekday) || !nthInMonth) {
+      return "";
+    }
+    return nthWeekdayOfMonth(year, month, weekday, nthInMonth);
+  }
+
+  return "";
+}
+
+function holidayTypePriority(type) {
+  switch (String(type || "").toUpperCase()) {
+    case "MUNICIPAL":
+      return 5;
+    case "ESTADUAL":
+      return 4;
+    case "NACIONAL":
+      return 3;
+    case "FACULTATIVO":
+      return 2;
+    case "COMEMORATIVA":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+async function materializeHolidayRules(db, startYear, endYear) {
+  const rules = await db.all(
+    `
+      SELECT *
+      FROM holiday_rules
+      WHERE active = 1 AND COALESCE(blocks_school, 1) = 1
+      ORDER BY type, name
+    `
+  );
+
+  let inserted = 0;
+
+  for (let year = startYear; year <= endYear; year += 1) {
+    for (const rule of rules) {
+      const blockedDate = ruleDateForYear(rule, year);
+      if (!blockedDate) continue;
+
+      const existing = await db.get(
+        "SELECT id, description, holiday_type FROM calendar_holidays WHERE blocked_date = ?",
+        blockedDate
+      );
+
+      if (!existing) {
+        const result = await db.run(
+          `
+            INSERT INTO calendar_holidays (
+              id, blocked_date, description, holiday_type, municipio, uf, source_rule_id, generated_year, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+          createId("feriado-auto"),
+          blockedDate,
+          rule.name,
+          rule.type,
+          rule.municipio || "",
+          rule.uf || "",
+          rule.id,
+          year,
+          new Date().toISOString()
+        );
+        inserted += Number(result?.changes || 0);
+        continue;
+      }
+
+      const incomingPriority = holidayTypePriority(rule.type);
+      const existingPriority = holidayTypePriority(existing.holiday_type);
+      if (incomingPriority > existingPriority) {
+        await db.run(
+          `
+            UPDATE calendar_holidays
+            SET description = ?, holiday_type = ?, municipio = ?, uf = ?, source_rule_id = ?, generated_year = ?
+            WHERE id = ?
+          `,
+          rule.name,
+          rule.type,
+          rule.municipio || "",
+          rule.uf || "",
+          rule.id,
+          year,
+          existing.id
+        );
+      }
+    }
+  }
+
+  return inserted;
+}
+
 function isSunday(dateString) {
   const date = new Date(`${dateString}T12:00:00Z`);
   return date.getUTCDay() === 0;
@@ -193,7 +467,16 @@ function isDateBlocked(dateString, blockedDates) {
   return blockedDates.has(dateString);
 }
 
-async function loadBlockedDates(db) {
+async function loadBlockedDates(db, controls = []) {
+  const currentYear = new Date().getUTCFullYear();
+  const startYears = controls
+    .map((control) => Number(String(control.start_date || "").slice(0, 4)))
+    .filter((year) => Number.isFinite(year) && year > 1999 && year < 2100);
+
+  const minYear = startYears.length ? Math.min(...startYears, currentYear) : currentYear;
+  const maxYear = Math.max(currentYear + 3, minYear + 1);
+  await materializeHolidayRules(db, minYear, maxYear);
+
   const blockedDates = new Set();
 
   const holidays = await db.all("SELECT blocked_date FROM calendar_holidays ORDER BY blocked_date ASC");
@@ -311,6 +594,87 @@ function calculateProgress(control, blockedDates) {
   };
 }
 
+function getStudentStartDate(student) {
+  return normalizeDate(student.register_start_date || "");
+}
+
+function calculateStudentProjection(student, blockedDates) {
+  const startDate = getStudentStartDate(student);
+  const contractedHours = normalizeNumber(student.contracted_hours, 0);
+  const completedHours = normalizeNumber(student.completed_hours, 0);
+  const today = normalizeDate(new Date());
+  const plannedSessions = contractedHours > 0 ? Math.ceil(contractedHours / 2) : 0;
+  const plannedCompletionDate = startDate && plannedSessions > 0
+    ? nthSessionDate(startDate, plannedSessions, blockedDates)
+    : "";
+
+  if (!startDate || contractedHours <= 0) {
+    const overrunHours = Math.max(completedHours - contractedHours, 0);
+    const rhythmStatus = contractedHours > 0 && overrunHours > 0
+      ? "ESTOUROU"
+      : (startDate ? "SEM CARGA" : "SEM DATA INICIAL");
+
+    return {
+      startDate,
+      contractedHours,
+      completedHours,
+      remainingHours: Math.max(contractedHours - completedHours, 0),
+      elapsedSessions: 0,
+      expectedCompletedHours: 0,
+      averageHoursPerSession: 0,
+      rhythmStatus,
+      projectedCompletionDate: "",
+      plannedCompletionDate,
+      overrunHours,
+      percentComplete: contractedHours > 0 ? completedHours / contractedHours : 0,
+      projectionSource: "INSUFICIENTE"
+    };
+  }
+
+  const elapsedSessions = countWeeklySessionsInclusive(startDate, today, blockedDates);
+  const expectedCompletedHours = elapsedSessions * 2;
+  const averageHoursPerSession = elapsedSessions > 0 && completedHours > 0
+    ? completedHours / elapsedSessions
+    : 2;
+  const effectiveHoursPerSession = averageHoursPerSession > 0 ? averageHoursPerSession : 2;
+  const remainingHours = Math.max(contractedHours - completedHours, 0);
+  const overrunHours = Math.max(completedHours - contractedHours, 0);
+  const additionalSessionsNeeded = remainingHours > 0 ? Math.ceil(remainingHours / effectiveHoursPerSession) : 0;
+  const projectedCompletionDate = remainingHours <= 0
+    ? plannedCompletionDate
+    : nthSessionDate(startDate, elapsedSessions + additionalSessionsNeeded, blockedDates);
+
+  let rhythmStatus = "NO RITMO";
+  const deltaHours = completedHours - expectedCompletedHours;
+  if (deltaHours >= 8) {
+    rhythmStatus = "ADIANTADO";
+  } else if (deltaHours <= -8) {
+    rhythmStatus = "ATRASADO";
+  }
+
+  if (completedHours > contractedHours && contractedHours > 0) {
+    rhythmStatus = "ESTOUROU";
+  } else if (completedHours >= contractedHours && contractedHours > 0) {
+    rhythmStatus = "CONCLUÍDO";
+  }
+
+  return {
+    startDate,
+    contractedHours,
+    completedHours,
+    remainingHours,
+    elapsedSessions,
+    expectedCompletedHours,
+    averageHoursPerSession,
+    rhythmStatus,
+    projectedCompletionDate,
+    plannedCompletionDate,
+    overrunHours,
+    percentComplete: contractedHours > 0 ? completedHours / contractedHours : 0,
+    projectionSource: "CALCULADO"
+  };
+}
+
 async function getCourseById(db, courseId) {
   return db.get("SELECT * FROM course_catalog WHERE id = ?", courseId);
 }
@@ -404,12 +768,17 @@ app.get("/api/alunos", async (req, res) => {
         SELECT
           id,
           student_name,
+          normalized_name,
           responsible,
-          attendance_status,
           absences_count,
           last_presence_date,
           contracted_hours,
           completed_hours,
+          installments_remaining,
+          contract_start_date,
+          register_start_date,
+          register_created_date,
+          status_start_date,
           phone,
           updated_at
         FROM student_registry
@@ -417,7 +786,115 @@ app.get("/api/alunos", async (req, res) => {
       `
     );
 
-    res.json(students);
+    const blockedDates = await loadBlockedDates(
+      db,
+      students.map((student) => ({ start_date: getStudentStartDate(student) })).filter((student) => student.start_date)
+    );
+
+    res.json(
+      students.map((student) => {
+        const projection = calculateStudentProjection(student, blockedDates);
+        const hoursRemaining = Math.max(
+          normalizeNumber(student.contracted_hours, 0) - normalizeNumber(student.completed_hours, 0),
+          0
+        );
+
+        return {
+          ...student,
+          hours_remaining: hoursRemaining,
+          projected_end_date: projection.projectedCompletionDate,
+          projection
+        };
+      })
+    );
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put("/api/alunos/:id", async (req, res) => {
+  try {
+    const changedBy = requireChangedBy(req, res);
+    if (!changedBy) return;
+
+    const db = await initDb();
+    const current = await db.get("SELECT * FROM student_registry WHERE id = ?", req.params.id);
+    if (!current) {
+      return res.status(404).json({ error: "Student not found." });
+    }
+
+    const studentName = String(req.body?.studentName || current.student_name || "").trim();
+    const phone = String(req.body?.phone || "").trim();
+    const responsible = String(req.body?.responsible || "").trim();
+    const contractedHours = req.body?.contractedHours === "" || req.body?.contractedHours === null || req.body?.contractedHours === undefined
+      ? null
+      : normalizeNumber(req.body?.contractedHours, current.contracted_hours);
+    const completedHours = req.body?.completedHours === "" || req.body?.completedHours === null || req.body?.completedHours === undefined
+      ? null
+      : normalizeNumber(req.body?.completedHours, current.completed_hours);
+    const registerStartDate = normalizeDate(req.body?.registerStartDate || current.register_start_date || "");
+    const statusStartDate = normalizeDate(req.body?.statusStartDate || current.status_start_date || "");
+    const absencesCount = req.body?.absencesCount === "" || req.body?.absencesCount === null || req.body?.absencesCount === undefined
+      ? null
+      : normalizeNumber(req.body?.absencesCount, current.absences_count);
+    const lastPresenceDate = normalizeDate(req.body?.lastPresenceDate || current.last_presence_date || "");
+
+    if (!studentName) {
+      return res.status(400).json({ error: "studentName is required." });
+    }
+
+    const normalizedName = studentName.toUpperCase();
+    const looseName = studentName
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\b(da|de|do|das|dos|e)\b/g, " ")
+      .replace(/[^a-z0-9]/g, "")
+      .replace(/(.)\1+/g, "$1")
+      .trim();
+
+    const updatedAt = new Date().toISOString();
+    await db.run(
+      `
+        UPDATE student_registry SET
+          student_name = ?,
+          normalized_name = ?,
+          loose_name = ?,
+          phone = ?,
+          responsible = ?,
+          contracted_hours = COALESCE(?, contracted_hours),
+          completed_hours = COALESCE(?, completed_hours),
+          register_start_date = ?,
+          status_start_date = ?,
+          absences_count = COALESCE(?, absences_count),
+          last_presence_date = ?,
+          updated_at = ?
+        WHERE id = ?
+      `,
+      studentName,
+      normalizedName,
+      looseName,
+      phone,
+      responsible,
+      contractedHours,
+      completedHours,
+      registerStartDate || null,
+      statusStartDate || null,
+      absencesCount,
+      lastPresenceDate || null,
+      updatedAt,
+      req.params.id
+    );
+
+    await registerAuditLog(db, {
+      entityType: "student",
+      entityId: req.params.id,
+      action: "UPDATE",
+      changedBy,
+      changeSummary: `Aluno atualizado: ${studentName}`
+    });
+
+    res.json({ ok: true, id: req.params.id, updatedAt });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -723,6 +1200,111 @@ app.get("/api/calendario/feriados", async (req, res) => {
   }
 });
 
+app.get("/api/calendario/feriados/regras", async (req, res) => {
+  try {
+    const db = await initDb();
+    const items = await db.all(
+      `
+        SELECT id, name, day, month, type, municipio, uf, blocks_school, data_movel, movable_rule, offset_days, active
+        FROM holiday_rules
+        ORDER BY
+          CASE type WHEN 'NACIONAL' THEN 1 WHEN 'ESTADUAL' THEN 2 WHEN 'MUNICIPAL' THEN 3 ELSE 4 END,
+          name COLLATE NOCASE
+      `
+    );
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put("/api/calendario/feriados/regras/:id", async (req, res) => {
+  try {
+    const changedBy = requireChangedBy(req, res);
+    if (!changedBy) return;
+
+    const blocksSchool = req.body?.blocksSchool;
+    const active = req.body?.active;
+
+    if (blocksSchool === undefined && active === undefined) {
+      return res.status(400).json({ error: "Informe blocksSchool e/ou active." });
+    }
+
+    const db = await initDb();
+    const current = await db.get("SELECT * FROM holiday_rules WHERE id = ?", req.params.id);
+    if (!current) {
+      return res.status(404).json({ error: "Regra de feriado não encontrada." });
+    }
+
+    const nextBlocksSchool = blocksSchool === undefined ? Number(current.blocks_school || 0) : (blocksSchool ? 1 : 0);
+    const nextActive = active === undefined ? Number(current.active || 0) : (active ? 1 : 0);
+
+    await db.run(
+      "UPDATE holiday_rules SET blocks_school = ?, active = ? WHERE id = ?",
+      nextBlocksSchool,
+      nextActive,
+      req.params.id
+    );
+
+    if (!nextBlocksSchool || !nextActive) {
+      await db.run("DELETE FROM calendar_holidays WHERE source_rule_id = ?", req.params.id);
+    } else {
+      const year = new Date().getUTCFullYear();
+      await materializeHolidayRules(db, year, year + 3);
+    }
+
+    await registerAuditLog(db, {
+      entityType: "holiday-rule",
+      entityId: req.params.id,
+      action: "UPDATE",
+      changedBy,
+      changeSummary: `Regra ${current.name}: bloqueia=${nextBlocksSchool ? "sim" : "não"}; ativa=${nextActive ? "sim" : "não"}`
+    });
+
+    const updated = await db.get(
+      `
+        SELECT id, name, day, month, type, municipio, uf, blocks_school, data_movel, movable_rule, offset_days, active
+        FROM holiday_rules
+        WHERE id = ?
+      `,
+      req.params.id
+    );
+
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/calendario/feriados/regras/gerar", async (req, res) => {
+  try {
+    const changedBy = requireChangedBy(req, res);
+    if (!changedBy) return;
+
+    const yearStart = normalizeNumber(req.body?.yearStart, new Date().getUTCFullYear());
+    const yearEnd = normalizeNumber(req.body?.yearEnd, yearStart + 1);
+
+    if (!Number.isInteger(yearStart) || !Number.isInteger(yearEnd) || yearStart < 2000 || yearEnd < yearStart || yearEnd > yearStart + 10) {
+      return res.status(400).json({ error: "yearStart/yearEnd inválidos." });
+    }
+
+    const db = await initDb();
+    const inserted = await materializeHolidayRules(db, yearStart, yearEnd);
+
+    await registerAuditLog(db, {
+      entityType: "holiday-rule",
+      entityId: `${yearStart}-${yearEnd}`,
+      action: "GENERATE",
+      changedBy,
+      changeSummary: `Feriados gerados por regras (${yearStart}-${yearEnd}). Inseridos: ${inserted}`
+    });
+
+    res.json({ success: true, yearStart, yearEnd, inserted });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post("/api/calendario/feriados", async (req, res) => {
   try {
     const changedBy = requireChangedBy(req, res);
@@ -838,7 +1420,7 @@ app.get("/api/progresso", async (req, res) => {
       `
     );
 
-    const blockedDates = await loadBlockedDates(db);
+    const blockedDates = await loadBlockedDates(db, controls);
     const payload = controls.map((control) => calculateProgress(control, blockedDates));
     res.json(payload);
   } catch (error) {
@@ -854,7 +1436,7 @@ app.get("/api/progresso/:id", async (req, res) => {
       return res.status(404).json({ error: "Control not found." });
     }
 
-    const blockedDates = await loadBlockedDates(db);
+    const blockedDates = await loadBlockedDates(db, [control]);
     res.json(calculateProgress(control, blockedDates));
   } catch (error) {
     res.status(500).json({ error: error.message });

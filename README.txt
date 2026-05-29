@@ -73,3 +73,9 @@ Observações operacionais
 - Em ambiente de rede/escola, prefira um backend centralizado.
 - Se mudar o endereço do servidor, ajuste API_BASE_URL_CANDIDATES em frontend/apostila-app.js.
 - Reinicie o app após mudanças de estrutura de páginas.
+
+Lembrete de pendências (não esquecer)
+-------------------------------------
+- Completar cadastro de contato dos alunos ainda sem telefone e/ou responsável no banco.
+- Revisar divergências de horas e projeções usando o arquivo de validação em data/import/validacao-horas-anexo.tsv.
+- Reexecutar validação de contatos quando houver novo arquivo: node backend/update-contacts-from-doc.js.

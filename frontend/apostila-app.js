@@ -28,6 +28,7 @@ const vacationsTableBody = document.querySelector("#vacationsTable tbody");
 const studentsTableBody = document.querySelector("#studentsTable tbody");
 const auditTableBody = document.querySelector("#auditTable tbody");
 const controlsTableBody = document.querySelector("#controlsTable tbody");
+const holidayRulesTableBody = document.querySelector("#holidayRulesTable tbody");
 
 const coursesMessage = document.getElementById("coursesMessage");
 const progressMessage = document.getElementById("progressMessage");
@@ -36,7 +37,31 @@ const exportFeedback = document.getElementById("exportFeedback");
 const studentsMessage = document.getElementById("studentsMessage");
 const auditMessage = document.getElementById("auditMessage");
 const controlsMessage = document.getElementById("controlsMessage");
+const holidayRulesMessage = document.getElementById("holidayRulesMessage");
+const holidayRulesFeedback = document.getElementById("holidayRulesFeedback");
 const selectedStudentDetails = document.getElementById("selectedStudentDetails");
+const studentEditModalEl = document.getElementById("studentEditModal");
+const studentEditForm = document.getElementById("studentEditForm");
+const studentEditIdInput = document.getElementById("studentEditId");
+const studentEditSummaryName = document.getElementById("studentEditSummaryName");
+const studentEditSummaryUpdated = document.getElementById("studentEditSummaryUpdated");
+const studentEditNameInput = document.getElementById("studentEditName");
+const studentEditPhoneInput = document.getElementById("studentEditPhone");
+const studentEditResponsibleInput = document.getElementById("studentEditResponsible");
+const studentEditContractedHoursInput = document.getElementById("studentEditContractedHours");
+const studentEditCompletedHoursInput = document.getElementById("studentEditCompletedHours");
+const studentEditRegisterStartDateInput = document.getElementById("studentEditRegisterStartDate");
+const studentEditStatusStartDateInput = document.getElementById("studentEditStatusStartDate");
+const studentEditAbsencesInput = document.getElementById("studentEditAbsences");
+const studentEditLastPresenceInput = document.getElementById("studentEditLastPresence");
+const studentEditChangedByInput = document.getElementById("studentEditChangedBy");
+const studentEditSaveButton = document.getElementById("studentEditSaveButton");
+const holidayRulesGenerateForm = document.getElementById("holidayRulesGenerateForm");
+const holidayYearStartInput = document.getElementById("holidayYearStart");
+const holidayYearEndInput = document.getElementById("holidayYearEnd");
+const holidayRulesTypeFilter = document.getElementById("holidayRulesTypeFilter");
+const holidayRulesBlocksFilter = document.getElementById("holidayRulesBlocksFilter");
+const holidayRulesActiveFilter = document.getElementById("holidayRulesActiveFilter");
 
 const exportCourses = document.getElementById("exportCourses");
 const exportControls = document.getElementById("exportControls");
@@ -44,6 +69,7 @@ const exportProgress = document.getElementById("exportProgress");
 const exportHolidays = document.getElementById("exportHolidays");
 const exportVacations = document.getElementById("exportVacations");
 const exportAudit = document.getElementById("exportAudit");
+const exportPdf = document.getElementById("exportPdf");
 
 let store = {
   courses: [],
@@ -52,10 +78,14 @@ let store = {
   progress: [],
   holidays: [],
   vacations: [],
-  audits: []
+  audits: [],
+  holidayRules: []
 };
 
 const tableInstances = new Map();
+const horizontalScrollSync = new Map();
+let studentEditModalInstance = null;
+let activeStudentEditId = null;
 
 function destroyEnhancedTable(tableId) {
   const instance = tableInstances.get(tableId);
@@ -63,6 +93,64 @@ function destroyEnhancedTable(tableId) {
     instance.destroy();
     tableInstances.delete(tableId);
   }
+}
+
+function destroyHorizontalScrollSync(tableId) {
+  const cleanup = horizontalScrollSync.get(tableId);
+  if (cleanup) {
+    cleanup();
+    horizontalScrollSync.delete(tableId);
+  }
+}
+
+function setupHorizontalScrollSync(tableId) {
+  destroyHorizontalScrollSync(tableId);
+
+  const table = document.getElementById(tableId);
+  if (!table) return;
+
+  const wrap = table.closest(".table-wrap");
+  const sync = wrap?.previousElementSibling;
+  const inner = sync?.querySelector(".table-scroll-sync-inner");
+
+  if (!wrap || !sync || !inner) return;
+
+  let isSyncing = false;
+
+  const syncWidths = () => {
+    const targetWidth = Math.max(wrap.scrollWidth, wrap.clientWidth);
+    inner.style.width = `${targetWidth}px`;
+  };
+
+  const handleTopScroll = () => {
+    if (isSyncing) return;
+    isSyncing = true;
+    wrap.scrollLeft = sync.scrollLeft;
+    isSyncing = false;
+  };
+
+  const handleBodyScroll = () => {
+    if (isSyncing) return;
+    isSyncing = true;
+    sync.scrollLeft = wrap.scrollLeft;
+    isSyncing = false;
+  };
+
+  sync.addEventListener("scroll", handleTopScroll, { passive: true });
+  wrap.addEventListener("scroll", handleBodyScroll, { passive: true });
+  window.addEventListener("resize", syncWidths);
+
+  const observer = new ResizeObserver(syncWidths);
+  observer.observe(wrap);
+
+  requestAnimationFrame(syncWidths);
+
+  horizontalScrollSync.set(tableId, () => {
+    sync.removeEventListener("scroll", handleTopScroll);
+    wrap.removeEventListener("scroll", handleBodyScroll);
+    window.removeEventListener("resize", syncWidths);
+    observer.disconnect();
+  });
 }
 
 function enhanceTable(tableId) {
@@ -118,7 +206,8 @@ function loadLocalStore() {
       progress: parsed.progress || [],
       holidays: parsed.holidays || [],
       vacations: parsed.vacations || [],
-      audits: parsed.audits || []
+      audits: parsed.audits || [],
+      holidayRules: parsed.holidayRules || []
     };
   } catch {
     store = {
@@ -128,7 +217,8 @@ function loadLocalStore() {
       progress: [],
       holidays: [],
       vacations: [],
-      audits: []
+      audits: [],
+      holidayRules: []
     };
   }
 }
@@ -150,18 +240,19 @@ async function fetchJson(url, options) {
 async function loadStore() {
   for (const candidate of API_BASE_URL_CANDIDATES) {
     try {
-      const [courses, students, controls, progress, holidays, vacations, audits] = await Promise.all([
+      const [courses, students, controls, progress, holidays, vacations, audits, holidayRules] = await Promise.all([
         fetchJson(`${candidate}/cursos`, { cache: "no-store" }),
         fetchJson(`${candidate}/alunos`, { cache: "no-store" }),
         fetchJson(`${candidate}/controle`, { cache: "no-store" }),
         fetchJson(`${candidate}/progresso`, { cache: "no-store" }),
         fetchJson(`${candidate}/calendario/feriados`, { cache: "no-store" }),
         fetchJson(`${candidate}/calendario/ferias`, { cache: "no-store" }),
-        fetchJson(`${candidate}/auditoria`, { cache: "no-store" })
+        fetchJson(`${candidate}/auditoria`, { cache: "no-store" }),
+        fetchJson(`${candidate}/calendario/feriados/regras`, { cache: "no-store" })
       ]);
 
       activeApiBaseUrl = candidate;
-      store = { courses, students, controls, progress, holidays, vacations, audits };
+      store = { courses, students, controls, progress, holidays, vacations, audits, holidayRules };
       saveStore();
       setServerStatus(true, `Servidor conectado (${candidate}).`);
       return true;
@@ -193,6 +284,23 @@ function formatDateTime(value) {
   return date.toLocaleString("pt-BR");
 }
 
+function toDateInputValue(value) {
+  if (!value) return "";
+  const text = String(value).trim();
+  if (!text) return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+    return text.slice(0, 10);
+  }
+
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
 function formatPercent(value) {
   return `${Math.round((Number(value) || 0) * 100)}%`;
 }
@@ -202,8 +310,16 @@ function formatHours(value) {
   return Number.isInteger(number) ? String(number) : number.toFixed(1).replace(/\.0$/, "");
 }
 
+function getProjectionVisualClass(status) {
+  const normalized = String(status || "").toUpperCase();
+  if (normalized === "ESTOUROU") return "projection-status-overrun";
+  if (normalized === "ATRASADO") return "projection-status-late";
+  if (normalized === "CONCLUÍDO") return "projection-status-done";
+  return "projection-status-default";
+}
+
 function getChangedBy() {
-  const value = String(changedByInput?.value || "").trim();
+  const value = String(changedByInput?.value || studentEditChangedByInput?.value || "").trim();
   if (!value) {
     alert("Informe o nome de quem está alterando os dados.");
     return "";
@@ -212,16 +328,49 @@ function getChangedBy() {
 }
 
 function initializeChangedBy() {
-  if (!changedByInput) return;
+  const targetInput = changedByInput || studentEditChangedByInput;
+  if (!targetInput) return;
 
   const saved = localStorage.getItem("changedByName");
-  if (saved && !changedByInput.value) {
-    changedByInput.value = saved;
+  if (saved && !targetInput.value) {
+    targetInput.value = saved;
   }
 
-  changedByInput.addEventListener("input", () => {
-    localStorage.setItem("changedByName", changedByInput.value.trim());
+  targetInput.addEventListener("input", () => {
+    localStorage.setItem("changedByName", targetInput.value.trim());
   });
+}
+
+function openStudentEditModal(student) {
+  if (!studentEditModalEl || typeof bootstrap === "undefined") return;
+
+  activeStudentEditId = student.id;
+  studentEditIdInput.value = student.id;
+  studentEditSummaryName.textContent = student.student_name || "-";
+  studentEditSummaryUpdated.textContent = formatDateTime(student.updated_at);
+  studentEditNameInput.value = student.student_name || "";
+  studentEditPhoneInput.value = student.phone || "";
+  studentEditResponsibleInput.value = student.responsible || "";
+  studentEditContractedHoursInput.value = student.contracted_hours ?? "";
+  studentEditCompletedHoursInput.value = student.completed_hours ?? "";
+  studentEditRegisterStartDateInput.value = toDateInputValue(student.register_start_date || student.status_start_date || "");
+  studentEditStatusStartDateInput.value = toDateInputValue(student.status_start_date || "");
+  studentEditAbsencesInput.value = student.absences_count ?? "";
+  studentEditLastPresenceInput.value = toDateInputValue(student.last_presence_date || "");
+
+  const saved = localStorage.getItem("changedByName") || "";
+  if (studentEditChangedByInput && !studentEditChangedByInput.value) {
+    studentEditChangedByInput.value = saved;
+  }
+
+  studentEditModalInstance = bootstrap.Modal.getOrCreateInstance(studentEditModalEl);
+  studentEditModalInstance.show();
+}
+
+function closeStudentEditModal() {
+  if (studentEditModalInstance) {
+    studentEditModalInstance.hide();
+  }
 }
 
 function createSheet(header, rows) {
@@ -303,6 +452,63 @@ function generateAuditSheet() {
       item.change_summary || ""
     ])
   );
+}
+
+function generatePdfTable(doc, title, headers, rows) {
+  if (!rows.length) return;
+
+  doc.setFontSize(14);
+  doc.text(title, 14, 16);
+  doc.autoTable({
+    startY: 22,
+    head: [headers],
+    body: rows,
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [15, 98, 254] },
+    margin: { left: 14, right: 14 }
+  });
+}
+
+function generatePdfReport() {
+  if (typeof window.jspdf === "undefined" || typeof window.jspdf.jsPDF === "undefined") {
+    throw new Error("Falha ao carregar a biblioteca de PDF.");
+  }
+
+  const doc = new window.jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  let pageCount = 0;
+
+  const addSection = (title, headers, rows) => {
+    if (!rows.length) return;
+    if (pageCount > 0) doc.addPage();
+    generatePdfTable(doc, title, headers, rows);
+    pageCount += 1;
+  };
+
+  if (store.courses.length) {
+    addSection("Cursos", ["Curso", "Carga horária", "Criado em"], store.courses.map((course) => [course.name, `${formatHours(course.total_hours)}h`, formatDate(course.created_at)]));
+  }
+
+  if (store.controls.length) {
+    addSection("Acompanhamentos", ["Curso", "Aluno", "Início", "Horas/semana", "Responsável", "Observações"], store.controls.map((control) => [control.course_name || "", control.student_name || "", formatDate(control.start_date), `${formatHours(control.weekly_hours)}h`, control.responsible || "", control.notes || ""]));
+  }
+
+  if (store.progress.length) {
+    addSection("Progresso", ["Curso", "Aluno", "Início", "Total", "Consumido", "Restante", "90%", "100%", "Status"], store.progress.map((item) => [item.courseName || "", item.studentName || "", formatDate(item.startDate), `${formatHours(item.totalHours)}h`, `${formatHours(item.consumedHours)}h`, `${formatHours(item.remainingHours)}h`, formatDate(item.projectedNinetyDate), formatDate(item.projectedHundredDate), item.status || ""]));
+  }
+
+  if (store.holidays.length) {
+    addSection("Feriados", ["Data", "Descrição"], store.holidays.map((item) => [formatDate(item.blocked_date), item.description || ""]));
+  }
+
+  if (store.vacations.length) {
+    addSection("Férias", ["Início", "Fim", "Descrição"], store.vacations.map((item) => [formatDate(item.start_date), formatDate(item.end_date), item.description || ""]));
+  }
+
+  if (store.audits.length) {
+    addSection("Auditoria", ["Data", "Ação", "Entidade", "ID", "Alterado por", "Resumo"], store.audits.map((item) => [formatDate(item.created_at?.slice(0, 10) || ""), item.action || "", item.entity_type || "", item.entity_id || "", item.changed_by || "", item.change_summary || ""]));
+  }
+
+  doc.save("controle-apostilas.pdf");
 }
 
 function renderSummary() {
@@ -432,6 +638,7 @@ if (coursesTableBody) {
 
 function renderStudents() {
   destroyEnhancedTable("studentsTable");
+  destroyHorizontalScrollSync("studentsTable");
 
   if (studentSelect) {
     studentSelect.innerHTML = '<option value="">Selecione um aluno importado (opcional)</option>';
@@ -462,9 +669,12 @@ function renderStudents() {
     }
 
     if (studentsTableBody) {
+      const projection = student.projection || {};
+      const projectionStatusClass = getProjectionVisualClass(projection.rhythmStatus);
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${student.student_name || "-"}</td>
+        <td>${formatDate(projection.startDate)}</td>
         <td>${student.responsible || "-"}</td>
         <td>${student.phone || "-"}</td>
         <td>${student.attendance_status || "-"}</td>
@@ -472,6 +682,9 @@ function renderStudents() {
         <td>${formatDate(student.last_presence_date)}</td>
         <td>${formatHours(student.contracted_hours)}h</td>
         <td>${formatHours(student.completed_hours)}h</td>
+        <td>${formatHours(projection.remainingHours)}h</td>
+        <td><span class="projection-chip ${projectionStatusClass}">${formatDate(projection.projectedCompletionDate)}</span></td>
+        <td><button type="button" class="secondary-button action-button" data-action="edit-student" data-id="${student.id}">Editar</button></td>
         <td>${formatDateTime(student.updated_at)}</td>
       `;
       studentsTableBody.appendChild(row);
@@ -479,6 +692,82 @@ function renderStudents() {
   });
 
   enhanceTable("studentsTable");
+  setupHorizontalScrollSync("studentsTable");
+}
+
+async function editStudent(student) {
+  openStudentEditModal(student);
+}
+
+async function saveStudentEdit() {
+  if (!activeStudentEditId) return;
+
+  const changedBy = getChangedBy();
+  if (!changedBy) return;
+
+  const payload = {
+    studentName: String(studentEditNameInput.value || "").trim(),
+    phone: String(studentEditPhoneInput.value || "").trim(),
+    responsible: String(studentEditResponsibleInput.value || "").trim(),
+    contractedHours: String(studentEditContractedHoursInput.value || "").trim(),
+    completedHours: String(studentEditCompletedHoursInput.value || "").trim(),
+    registerStartDate: String(studentEditRegisterStartDateInput.value || "").trim(),
+    statusStartDate: String(studentEditStatusStartDateInput.value || "").trim(),
+    absencesCount: String(studentEditAbsencesInput.value || "").trim(),
+    lastPresenceDate: String(studentEditLastPresenceInput.value || "").trim(),
+    changedBy
+  };
+
+  if (!payload.studentName) {
+    alert("Informe o nome do aluno.");
+    return;
+  }
+
+  if (studentEditSaveButton) {
+    studentEditSaveButton.disabled = true;
+  }
+
+  try {
+    await fetchJson(`${activeApiBaseUrl}/alunos/${activeStudentEditId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    closeStudentEditModal();
+    await refreshData();
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    if (studentEditSaveButton) {
+      studentEditSaveButton.disabled = false;
+    }
+  }
+}
+
+if (studentsTableBody) {
+  studentsTableBody.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
+
+    if (button.dataset.action === "edit-student") {
+      const student = store.students.find((item) => String(item.id) === String(button.dataset.id));
+      if (!student) return;
+      await editStudent(student);
+    }
+  });
+}
+
+if (studentEditForm) {
+  studentEditForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveStudentEdit();
+  });
+}
+
+if (studentEditSaveButton) {
+  studentEditSaveButton.addEventListener("click", () => {
+    saveStudentEdit();
+  });
 }
 
 function renderAudit() {
@@ -555,11 +844,17 @@ function renderSelectedStudent(student) {
     return;
   }
 
+  const projection = student.projection || {};
+  const projectionStatusClass = getProjectionVisualClass(projection.rhythmStatus);
   selectedStudentDetails.innerHTML = `
     <strong>${student.student_name || "-"}</strong><br />
+    Início base: ${formatDate(projection.startDate)}<br />
     Status: ${student.attendance_status || "-"}<br />
     Faltas: ${student.absences_count ?? "-"}<br />
     Ultima presenca: ${formatDate(student.last_presence_date)}<br />
+    Restante: ${formatHours(projection.remainingHours)}h<br />
+    Previsão final: <span class="projection-chip ${projectionStatusClass}">${formatDate(projection.projectedCompletionDate)}</span><br />
+    Situação: ${projection.rhythmStatus || "-"}<br />
     Responsavel: ${student.responsible || "-"}<br />
     Telefone: ${student.phone || "-"}
   `;
@@ -666,6 +961,111 @@ function renderCalendar() {
   });
 }
 
+function holidayRecurrenceLabel(rule) {
+  if (!Number(rule.data_movel)) {
+    if (rule.day && rule.month) {
+      return `${String(rule.day).padStart(2, "0")}/${String(rule.month).padStart(2, "0")}`;
+    }
+    return "Fixo";
+  }
+
+  if (rule.movable_rule === "EASTER_OFFSET") {
+    const offset = Number(rule.offset_days || 0);
+    if (offset === 0) return "Páscoa";
+    if (offset > 0) return `Páscoa +${offset}`;
+    return `Páscoa ${offset}`;
+  }
+
+  if (rule.movable_rule === "NTH_WEEKDAY_OF_MONTH") {
+    return "Domingo ordinal";
+  }
+
+  return "Data móvel";
+}
+
+function getFilteredHolidayRules() {
+  const selectedType = String(holidayRulesTypeFilter?.value || "").trim();
+  const selectedBlocks = String(holidayRulesBlocksFilter?.value || "").trim();
+  const selectedActive = String(holidayRulesActiveFilter?.value || "").trim();
+
+  return store.holidayRules.filter((rule) => {
+    if (selectedType && String(rule.type || "").toUpperCase() !== selectedType.toUpperCase()) {
+      return false;
+    }
+
+    if (selectedBlocks && String(Number(rule.blocks_school || 0)) !== selectedBlocks) {
+      return false;
+    }
+
+    if (selectedActive && String(Number(rule.active || 0)) !== selectedActive) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function renderHolidayRules() {
+  destroyEnhancedTable("holidayRulesTable");
+  if (!holidayRulesTableBody) return;
+
+  holidayRulesTableBody.innerHTML = "";
+
+  if (!store.holidayRules.length) {
+    if (holidayRulesMessage) {
+      holidayRulesMessage.textContent = "Nenhuma regra de feriado encontrada.";
+    }
+    return;
+  }
+
+  const filteredRules = getFilteredHolidayRules();
+
+  if (!filteredRules.length) {
+    if (holidayRulesMessage) {
+      holidayRulesMessage.textContent = "Nenhuma regra encontrada para os filtros selecionados.";
+    }
+    return;
+  }
+
+  if (holidayRulesMessage) {
+    holidayRulesMessage.textContent = "";
+  }
+
+  filteredRules.forEach((rule) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${rule.name || "-"}</td>
+      <td>${rule.type || "-"}</td>
+      <td>${holidayRecurrenceLabel(rule)}</td>
+      <td>
+        <select data-role="blocksSchool" data-id="${rule.id}">
+          <option value="1" ${Number(rule.blocks_school) ? "selected" : ""}>Sim</option>
+          <option value="0" ${Number(rule.blocks_school) ? "" : "selected"}>Não</option>
+        </select>
+      </td>
+      <td>
+        <select data-role="active" data-id="${rule.id}">
+          <option value="1" ${Number(rule.active) ? "selected" : ""}>Sim</option>
+          <option value="0" ${Number(rule.active) ? "" : "selected"}>Não</option>
+        </select>
+      </td>
+      <td>
+        <button type="button" class="secondary-button action-button" data-action="save-holiday-rule" data-id="${rule.id}">Salvar</button>
+      </td>
+    `;
+    holidayRulesTableBody.appendChild(row);
+  });
+
+  enhanceTable("holidayRulesTable");
+}
+
+[holidayRulesTypeFilter, holidayRulesBlocksFilter, holidayRulesActiveFilter].forEach((filter) => {
+  if (!filter) return;
+  filter.addEventListener("change", () => {
+    renderHolidayRules();
+  });
+});
+
 function initializeDateFields() {
   const startDate = document.getElementById("startDate");
   const blockedDate = document.getElementById("blockedDate");
@@ -688,8 +1088,76 @@ async function refreshData() {
   renderProgress();
   renderPreview();
   renderCalendar();
+  renderHolidayRules();
   renderAudit();
   initializeDateFields();
+}
+
+if (holidayRulesTableBody) {
+  holidayRulesTableBody.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-action='save-holiday-rule']");
+    if (!button) return;
+
+    const changedBy = getChangedBy();
+    if (!changedBy) return;
+
+    const ruleId = button.dataset.id;
+    const blocksSelect = holidayRulesTableBody.querySelector(`select[data-role='blocksSchool'][data-id='${ruleId}']`);
+    const activeSelect = holidayRulesTableBody.querySelector(`select[data-role='active'][data-id='${ruleId}']`);
+    if (!blocksSelect || !activeSelect) return;
+
+    const blocksSchool = blocksSelect.value === "1";
+    const active = activeSelect.value === "1";
+
+    try {
+      await fetchJson(`${activeApiBaseUrl}/calendario/feriados/regras/${ruleId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blocksSchool, active, changedBy })
+      });
+
+      if (holidayRulesFeedback) {
+        holidayRulesFeedback.textContent = "Regra atualizada com sucesso.";
+      }
+
+      await refreshData();
+    } catch (error) {
+      alert(error.message);
+    }
+  });
+}
+
+if (holidayRulesGenerateForm) {
+  holidayRulesGenerateForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const changedBy = getChangedBy();
+    if (!changedBy) return;
+
+    const yearStart = Number(holidayYearStartInput?.value || new Date().getFullYear());
+    const yearEnd = Number(holidayYearEndInput?.value || yearStart);
+
+    if (!Number.isInteger(yearStart) || !Number.isInteger(yearEnd) || yearEnd < yearStart) {
+      alert("Informe anos válidos para geração.");
+      return;
+    }
+
+    try {
+      const response = await fetchJson(`${activeApiBaseUrl}/calendario/feriados/regras/gerar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ yearStart, yearEnd, changedBy })
+      });
+
+      if (holidayRulesFeedback) {
+        holidayRulesFeedback.textContent = `Geração concluída (${response.yearStart}-${response.yearEnd}). Inseridos: ${response.inserted}.`;
+      }
+
+      await refreshData();
+    } catch (error) {
+      alert(error.message);
+    }
+  });
 }
 
 if (studentSelect) {
@@ -863,8 +1331,9 @@ if (exportForm) {
     const wantsHolidays = exportHolidays?.checked;
     const wantsVacations = exportVacations?.checked;
     const wantsAudit = exportAudit?.checked;
+    const wantsPdf = exportPdf?.checked;
 
-    if (!wantsCourses && !wantsControls && !wantsProgress && !wantsHolidays && !wantsVacations && !wantsAudit) {
+    if (!wantsCourses && !wantsControls && !wantsProgress && !wantsHolidays && !wantsVacations && !wantsAudit && !wantsPdf) {
       if (exportFeedback) {
         exportFeedback.textContent = "Selecione ao menos uma opção para exportar.";
       }
@@ -889,14 +1358,26 @@ if (exportForm) {
     const workbook = createWorkbook(sheets);
     XLSX.writeFile(workbook, "controle-apostilas.xlsx");
 
+    if (wantsPdf) {
+      generatePdfReport();
+    }
+
     if (exportFeedback) {
-      exportFeedback.textContent = "Arquivo Excel gerado com sucesso.";
+      exportFeedback.textContent = wantsPdf ? "Arquivos Excel e PDF gerados com sucesso." : "Arquivo Excel gerado com sucesso.";
     }
   });
 }
 
 async function init() {
   initializeChangedBy();
+
+  if (holidayYearStartInput && !holidayYearStartInput.value) {
+    holidayYearStartInput.value = String(new Date().getFullYear());
+  }
+  if (holidayYearEndInput && !holidayYearEndInput.value) {
+    holidayYearEndInput.value = String(new Date().getFullYear());
+  }
+
   await loadStore();
   renderSummary();
   renderCourses();
@@ -905,6 +1386,7 @@ async function init() {
   renderProgress();
   renderPreview();
   renderCalendar();
+  renderHolidayRules();
   renderAudit();
   renderSelectedStudent(null);
   initializeDateFields();

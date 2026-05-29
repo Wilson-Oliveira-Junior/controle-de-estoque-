@@ -31,9 +31,14 @@
         <a href="index.html">Início</a>
         <a href="users.html">Alunos</a>
         <a href="add.html">Cursos</a>
-        <a href="withdraw.html">Acompanhamento</a>
-        <a href="estoque.html">Progresso</a>
-        <a href="historico.html">Calendário e histórico</a>
+        <div class="menu-dropdown dropdown">
+          <a href="estoque.html" class="dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false">Controle</a>
+          <div class="dropdown-menu">
+            <a class="dropdown-item" href="withdraw.html">Acompanhamento</a>
+            <a class="dropdown-item" href="estoque.html">Progresso</a>
+            <a class="dropdown-item" href="historico.html">Calendário e histórico</a>
+          </div>
+        </div>
         <a href="export.html" class="active">Exportar</a>
       </nav>
       <div id="serverStatus" class="server-status">Verificando status do servidor...</div>
@@ -64,6 +69,10 @@
             <input type="checkbox" id="exportAudit" checked />
             Incluir auditoria (quem alterou)
           </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="exportPdf" checked />
+            Incluir PDF resumo
+          </label>
           <button type="submit" class="primary-button">Gerar arquivo Excel</button>
           <div id="exportFeedback" class="info"></div>
         </form>
@@ -74,6 +83,8 @@
   <script src="https://cdn.datatables.net/2.0.8/js/dataTables.js"></script>
   <script src="https://cdn.datatables.net/2.0.8/js/dataTables.bootstrap5.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <script src="apostila-app.js"></script>
 </body>
 </html>

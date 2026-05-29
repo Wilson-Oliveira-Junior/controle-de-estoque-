@@ -31,9 +31,14 @@
         <a href="index.html">Início</a>
         <a href="users.html">Alunos</a>
         <a href="add.html" class="active">Cursos</a>
-        <a href="withdraw.html">Acompanhamento</a>
-        <a href="estoque.html">Progresso</a>
-        <a href="historico.html">Calendário e histórico</a>
+        <div class="menu-dropdown dropdown">
+          <a href="estoque.html" class="dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false">Controle</a>
+          <div class="dropdown-menu">
+            <a class="dropdown-item" href="withdraw.html">Acompanhamento</a>
+            <a class="dropdown-item" href="estoque.html">Progresso</a>
+            <a class="dropdown-item" href="historico.html">Calendário e histórico</a>
+          </div>
+        </div>
         <a href="export.html">Exportar</a>
       </nav>
       <div id="serverStatus" class="server-status">Verificando status do servidor...</div>

@@ -31,9 +31,14 @@
         <a href="index.html">Início</a>
         <a href="users.html">Alunos</a>
         <a href="add.html">Cursos</a>
-        <a href="withdraw.html">Acompanhamento</a>
-        <a href="estoque.html">Progresso</a>
-        <a href="historico.html" class="active">Calendário e histórico</a>
+        <div class="menu-dropdown dropdown">
+          <a href="historico.html" class="dropdown-toggle active" data-bs-toggle="dropdown" role="button" aria-expanded="false">Controle</a>
+          <div class="dropdown-menu">
+            <a class="dropdown-item" href="withdraw.html">Acompanhamento</a>
+            <a class="dropdown-item" href="estoque.html">Progresso</a>
+            <a class="dropdown-item active" href="historico.html">Calendário e histórico</a>
+          </div>
+        </div>
         <a href="export.html">Exportar</a>
       </nav>
       <div id="serverStatus" class="server-status">Verificando status do servidor...</div>
@@ -83,6 +88,72 @@
           </label>
           <button type="submit" class="secondary-button">Salvar férias</button>
         </form>
+      </section>
+
+      <section class="card">
+        <div class="section-header">
+          <h2>Regras de feriado</h2>
+          <span class="section-note">Escolha quais regras realmente bloqueiam aula e gere os anos automaticamente.</span>
+        </div>
+
+        <form id="holidayRulesGenerateForm" class="rules-generate-form">
+          <label>
+            Ano inicial
+            <input type="number" id="holidayYearStart" min="2000" max="2100" />
+          </label>
+          <label>
+            Ano final
+            <input type="number" id="holidayYearEnd" min="2000" max="2100" />
+          </label>
+          <button type="submit" class="secondary-button">Gerar feriados por regra</button>
+        </form>
+
+        <div id="holidayRulesFeedback" class="info"></div>
+        <div id="holidayRulesMessage" class="info"></div>
+
+        <div class="rules-filter-form">
+          <label>
+            Tipo
+            <select id="holidayRulesTypeFilter">
+              <option value="">Todos</option>
+              <option value="NACIONAL">Nacional</option>
+              <option value="ESTADUAL">Estadual</option>
+              <option value="MUNICIPAL">Municipal</option>
+              <option value="FACULTATIVO">Facultativo</option>
+              <option value="COMEMORATIVA">Comemorativa</option>
+            </select>
+          </label>
+          <label>
+            Bloqueia escola
+            <select id="holidayRulesBlocksFilter">
+              <option value="">Todos</option>
+              <option value="1">Sim</option>
+              <option value="0">Não</option>
+            </select>
+          </label>
+          <label>
+            Regra ativa
+            <select id="holidayRulesActiveFilter">
+              <option value="">Todas</option>
+              <option value="1">Ativa</option>
+              <option value="0">Inativa</option>
+            </select>
+          </label>
+        </div>
+
+        <table id="holidayRulesTable">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Tipo</th>
+              <th>Recorrência</th>
+              <th>Bloqueia escola</th>
+              <th>Ativa</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </section>
 
       <section class="card">
