@@ -158,6 +158,41 @@ function normalizeText(text) {
   return text ? text.trim().toLowerCase() : "";
 }
 
+function normalizeLookupText(text) {
+  return String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parsePlannedCourseNames(enrolledIn) {
+  const raw = String(enrolledIn || "").trim();
+  if (!raw) return [];
+
+  const names = raw
+    .split(/[,;|]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => entry.replace(/^\d+\s*[_-]\s*/, "").trim())
+    .filter(Boolean);
+
+  return [...new Set(names)];
+}
+
+function isCourseNameInPlannedList(courseName, plannedCourseNames) {
+  const normalizedCourseName = normalizeLookupText(courseName);
+  if (!normalizedCourseName) return false;
+
+  return plannedCourseNames.some((plannedCourseName) => {
+    const normalizedPlannedName = normalizeLookupText(plannedCourseName);
+    if (!normalizedPlannedName) return false;
+    return normalizedCourseName.includes(normalizedPlannedName) || normalizedPlannedName.includes(normalizedCourseName);
+  });
+}
+
 function getChangedBy(req) {
   return String(req.body?.changedBy || "").trim();
 }
@@ -679,6 +714,72 @@ async function getCourseById(db, courseId) {
   return db.get("SELECT * FROM course_catalog WHERE id = ?", courseId);
 }
 
+async function getStudentByIdForControlValidation(db, studentId) {
+  return db.get(
+    `
+      SELECT id, student_name, normalized_name, enrolled_in
+      FROM student_registry
+      WHERE id = ?
+    `,
+    studentId
+  );
+}
+
+async function validateCourseForStudentProgramming(db, { studentId, studentName, courseName }) {
+  const hasStudentRegistry = await db.get(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'student_registry'"
+  );
+
+  if (!hasStudentRegistry) {
+    return {
+      ok: false,
+      error: "Base de alunos não encontrada. Importe os alunos para validar a programação."
+    };
+  }
+
+  const normalizedStudentId = String(studentId || "").trim();
+  if (!normalizedStudentId) {
+    return {
+      ok: false,
+      error: "Selecione um aluno importado para vincular o acompanhamento à programação."
+    };
+  }
+
+  const student = await getStudentByIdForControlValidation(db, normalizedStudentId);
+  if (!student) {
+    return {
+      ok: false,
+      error: "Aluno importado não encontrado para validação da programação."
+    };
+  }
+
+  const normalizedProvidedName = normalizeLookupText(studentName);
+  const normalizedRegistryName = normalizeLookupText(student.student_name);
+  if (normalizedProvidedName && normalizedRegistryName && normalizedProvidedName !== normalizedRegistryName) {
+    return {
+      ok: false,
+      error: "O nome digitado não corresponde ao aluno importado selecionado."
+    };
+  }
+
+  const plannedCourseNames = parsePlannedCourseNames(student.enrolled_in);
+  if (!plannedCourseNames.length) {
+    return {
+      ok: false,
+      error: `Aluno ${student.student_name} sem programação de cursos cadastrada.`
+    };
+  }
+
+  if (!isCourseNameInPlannedList(courseName, plannedCourseNames)) {
+    return {
+      ok: false,
+      error: `O curso selecionado não pertence à programação do aluno ${student.student_name}.`
+    };
+  }
+
+  return { ok: true, student };
+}
+
 async function getControlById(db, controlId) {
   return db.get(
     `
@@ -769,6 +870,7 @@ app.get("/api/alunos", async (req, res) => {
           id,
           student_name,
           normalized_name,
+          enrolled_in,
           responsible,
           absences_count,
           last_presence_date,
@@ -1058,6 +1160,15 @@ app.post("/api/controle", async (req, res) => {
       return res.status(404).json({ error: "Course not found." });
     }
 
+    const programmingValidation = await validateCourseForStudentProgramming(db, {
+      studentId,
+      studentName: normalizedStudentName,
+      courseName: course.name
+    });
+    if (!programmingValidation.ok) {
+      return res.status(400).json({ error: programmingValidation.error });
+    }
+
     const id = createId("ctrl");
     const createdAt = new Date().toISOString();
 
@@ -1129,6 +1240,15 @@ app.put("/api/controle/:id", async (req, res) => {
     const course = await getCourseById(db, courseId);
     if (!course) {
       return res.status(404).json({ error: "Course not found." });
+    }
+
+    const programmingValidation = await validateCourseForStudentProgramming(db, {
+      studentId,
+      studentName: normalizedStudentName,
+      courseName: course.name
+    });
+    if (!programmingValidation.ok) {
+      return res.status(400).json({ error: programmingValidation.error });
     }
 
     const updatedAt = new Date().toISOString();

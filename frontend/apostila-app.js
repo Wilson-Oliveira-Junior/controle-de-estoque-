@@ -532,12 +532,127 @@ function renderSummary() {
   }
 }
 
+function normalizeLookupText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseStudentPlannedCourseNames(student) {
+  const raw = String(student?.enrolled_in || "").trim();
+  if (!raw) return [];
+
+  const names = raw
+    .split(/[,;|]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => entry.replace(/^\d+\s*[_-]\s*/, "").trim())
+    .filter(Boolean);
+
+  return [...new Set(names)];
+}
+
+function findBestCourseMatchByName(courseName) {
+  const plannedNormalized = normalizeLookupText(courseName);
+  if (!plannedNormalized) return null;
+
+  const exact = store.courses.find((course) => normalizeLookupText(course.name) === plannedNormalized);
+  if (exact) return exact;
+
+  return store.courses.find((course) => {
+    const normalizedCourseName = normalizeLookupText(course.name);
+    if (!normalizedCourseName) return false;
+    return normalizedCourseName.includes(plannedNormalized) || plannedNormalized.includes(normalizedCourseName);
+  }) || null;
+}
+
+function getStudentCourseMapping(student) {
+  const plannedNames = parseStudentPlannedCourseNames(student);
+  const matchedCourses = [];
+  const unmatchedNames = [];
+
+  plannedNames.forEach((name) => {
+    const matched = findBestCourseMatchByName(name);
+    if (matched) {
+      if (!matchedCourses.some((course) => course.id === matched.id)) {
+        matchedCourses.push(matched);
+      }
+      return;
+    }
+    unmatchedNames.push(name);
+  });
+
+  return { plannedNames, matchedCourses, unmatchedNames };
+}
+
+function renderCourseSelectOptions(courses, placeholder = "Selecione um curso") {
+  if (!courseSelect) return;
+
+  const previousValue = courseSelect.value;
+  courseSelect.innerHTML = `<option value="">${placeholder}</option>`;
+
+  courses.forEach((course) => {
+    const option = document.createElement("option");
+    option.value = course.id;
+    option.textContent = `${course.name} - ${formatHours(course.total_hours)}h`;
+    courseSelect.appendChild(option);
+  });
+
+  if (previousValue && courses.some((course) => String(course.id) === String(previousValue))) {
+    courseSelect.value = previousValue;
+  }
+}
+
+function getMappedProgressForStudent(student, mappedCourses) {
+  const normalizedStudentName = normalizeLookupText(student?.student_name || "");
+  if (!normalizedStudentName || !mappedCourses.length) {
+    return { completed: 0, pending: mappedCourses.length };
+  }
+
+  const activeCourseIds = new Set(
+    store.controls
+      .filter((control) => normalizeLookupText(control.student_name) === normalizedStudentName)
+      .map((control) => String(control.course_id || ""))
+  );
+
+  let completed = 0;
+  mappedCourses.forEach((course) => {
+    if (activeCourseIds.has(String(course.id))) {
+      completed += 1;
+    }
+  });
+
+  return {
+    completed,
+    pending: Math.max(mappedCourses.length - completed, 0)
+  };
+}
+
+function applyStudentCourseFilter(student) {
+  if (!courseSelect) return;
+
+  if (!student) {
+    renderCourseSelectOptions(store.courses, "Selecione um curso");
+    return;
+  }
+
+  const mapping = getStudentCourseMapping(student);
+  if (mapping.matchedCourses.length) {
+    renderCourseSelectOptions(mapping.matchedCourses, "Selecione um curso da programação");
+    return;
+  }
+
+  renderCourseSelectOptions(store.courses, "Selecione um curso");
+}
+
 function renderCourses() {
   destroyEnhancedTable("coursesTable");
 
-  if (courseSelect) {
-    courseSelect.innerHTML = '<option value="">Selecione um curso</option>';
-  }
+  renderCourseSelectOptions(store.courses, "Selecione um curso");
 
   if (coursesTableBody) {
     coursesTableBody.innerHTML = "";
@@ -555,13 +670,6 @@ function renderCourses() {
   }
 
   store.courses.forEach((course) => {
-    if (courseSelect) {
-      const option = document.createElement("option");
-      option.value = course.id;
-      option.textContent = `${course.name} - ${formatHours(course.total_hours)}h`;
-      courseSelect.appendChild(option);
-    }
-
     if (coursesTableBody) {
       const row = document.createElement("tr");
       row.innerHTML = `
@@ -846,6 +954,14 @@ function renderSelectedStudent(student) {
 
   const projection = student.projection || {};
   const projectionStatusClass = getProjectionVisualClass(projection.rhythmStatus);
+  const mapping = getStudentCourseMapping(student);
+  const progress = getMappedProgressForStudent(student, mapping.matchedCourses);
+  const plannedSummary = mapping.plannedNames.length
+    ? `${mapping.matchedCourses.length}/${mapping.plannedNames.length} cursos mapeados`
+    : "Sem programação informada";
+  const missingCatalogSummary = mapping.unmatchedNames.length
+    ? mapping.unmatchedNames.slice(0, 4).join(", ")
+    : "-";
   selectedStudentDetails.innerHTML = `
     <strong>${student.student_name || "-"}</strong><br />
     Início base: ${formatDate(projection.startDate)}<br />
@@ -856,7 +972,11 @@ function renderSelectedStudent(student) {
     Previsão final: <span class="projection-chip ${projectionStatusClass}">${formatDate(projection.projectedCompletionDate)}</span><br />
     Situação: ${projection.rhythmStatus || "-"}<br />
     Responsavel: ${student.responsible || "-"}<br />
-    Telefone: ${student.phone || "-"}
+    Telefone: ${student.phone || "-"}<br />
+    Programação: ${plannedSummary}<br />
+    Acompanhados na programação: ${progress.completed}<br />
+    Pendentes da programação: ${progress.pending}<br />
+    Cursos sem correspondência no catálogo: ${missingCatalogSummary}
   `;
 }
 
@@ -1164,12 +1284,14 @@ if (studentSelect) {
   studentSelect.addEventListener("change", () => {
     const selectedId = studentSelect.value;
     if (!selectedId) {
+      applyStudentCourseFilter(null);
       renderSelectedStudent(null);
       return;
     }
 
     const student = store.students.find((item) => item.id === selectedId);
     if (!student) {
+      applyStudentCourseFilter(null);
       renderSelectedStudent(null);
       return;
     }
@@ -1185,6 +1307,7 @@ if (studentSelect) {
       responsibleInput.value = student.responsible || "";
     }
 
+    applyStudentCourseFilter(student);
     renderSelectedStudent(student);
   });
 }
@@ -1229,6 +1352,11 @@ if (withdrawForm) {
     const weeklyHours = Number(document.getElementById("weeklyHours").value);
     const responsible = document.getElementById("controlResponsible").value.trim();
     const notes = document.getElementById("controlNotes").value.trim();
+
+    if (!studentId) {
+      alert("Selecione um aluno importado para validar a programação antes de salvar.");
+      return;
+    }
 
     if (!courseId || !studentName || !startDate || weeklyHours <= 0 || !responsible) {
       alert("Preencha todos os campos do acompanhamento corretamente.");
@@ -1388,6 +1516,7 @@ async function init() {
   renderCalendar();
   renderHolidayRules();
   renderAudit();
+  applyStudentCourseFilter(null);
   renderSelectedStudent(null);
   initializeDateFields();
 }

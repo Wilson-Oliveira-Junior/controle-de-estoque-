@@ -260,7 +260,7 @@ async function upsertStudent(db, student) {
         register_end_date, notes, source_file, attendance_status, status_start_date,
         contract_days_since_start, absences_count, last_presence_date, days_since_last_class, loose_name,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(normalized_name) DO UPDATE SET
         student_name = COALESCE(excluded.student_name, student_registry.student_name),
         contracted_hours = COALESCE(excluded.contracted_hours, student_registry.contracted_hours),
