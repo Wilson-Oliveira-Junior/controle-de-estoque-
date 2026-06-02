@@ -39,6 +39,7 @@
             <a class="dropdown-item active" href="historico.html">Calendário e histórico</a>
           </div>
         </div>
+        <a href="turmas.html">Turmas</a>
         <a href="export.html">Exportar</a>
       </nav>
       <div id="serverStatus" class="server-status">Verificando status do servidor...</div>
@@ -191,6 +192,15 @@
 
       <section class="card">
         <div class="section-header">
+          <h2>Calendário semanal das aulas</h2>
+          <span class="section-note">Ao arrastar um aluno, o sistema pede o horário. Se a turma existir, ele é adicionado; se não, a turma é criada.</span>
+        </div>
+        <div id="classScheduleMessage" class="info"></div>
+        <div id="classScheduleCalendar" class="class-schedule-grid"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-header">
           <h2>Histórico de alterações</h2>
           <span class="section-note">Últimas ações registradas com responsável.</span>
         </div>
@@ -214,6 +224,25 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.datatables.net/2.0.8/js/dataTables.js"></script>
   <script src="https://cdn.datatables.net/2.0.8/js/dataTables.bootstrap5.js"></script>
+  <div class="modal fade" id="scheduleAssignModal" tabindex="-1" aria-labelledby="scheduleAssignModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="scheduleAssignModalLabel">Informar horário</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <p id="scheduleAssignHint" class="text-muted mb-2"></p>
+          <label for="scheduleAssignTime" class="form-label">Horário da turma</label>
+          <input id="scheduleAssignTime" class="form-control" type="text" placeholder="Ex: 19 as 21" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="scheduleAssignSaveButton">Confirmar horário</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <script src="apostila-app.js"></script>
 </body>
 </html>

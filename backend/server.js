@@ -132,6 +132,18 @@ async function initDb() {
     await ensureColumn(db, "student_registry", "absences_count", "absences_count REAL");
     await ensureColumn(db, "student_registry", "last_presence_date", "last_presence_date TEXT");
     await ensureColumn(db, "student_registry", "updated_at", "updated_at TEXT");
+    await ensureColumn(db, "student_registry", "package_percent", "package_percent REAL");
+    await ensureColumn(db, "student_registry", "completed_sessions_count", "completed_sessions_count REAL");
+    await ensureColumn(db, "student_registry", "extra_sessions_count", "extra_sessions_count REAL");
+    await ensureColumn(db, "student_registry", "scheduled_sessions_count", "scheduled_sessions_count REAL");
+    await ensureColumn(db, "student_registry", "presences_count", "presences_count REAL");
+    await ensureColumn(db, "student_registry", "repositions_count", "repositions_count REAL");
+    await ensureColumn(db, "student_registry", "presence_percent", "presence_percent REAL");
+    await ensureColumn(db, "student_registry", "schedule_note", "schedule_note TEXT");
+    await ensureColumn(db, "student_registry", "class_day", "class_day TEXT");
+    await ensureColumn(db, "student_registry", "class_time", "class_time TEXT");
+    await ensureColumn(db, "student_registry", "current_course", "current_course TEXT");
+    await ensureColumn(db, "student_registry", "current_lesson", "current_lesson REAL");
 
     await db.run(
       `
@@ -245,6 +257,58 @@ function normalizeDate(value) {
 function normalizeNumber(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizePercent(value) {
+  const parsed = Number(String(value || "").replace("%", "").replace(",", "."));
+  if (!Number.isFinite(parsed)) return null;
+  return parsed > 1 ? parsed / 100 : parsed;
+}
+
+function normalizeClassDay(value) {
+  const normalized = String(value || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  const values = {
+    segunda: "Segunda",
+    terca: "Terça",
+    quarta: "Quarta",
+    quinta: "Quinta",
+    sexta: "Sexta",
+    sabado: "Sábado"
+  };
+
+  return values[normalized] || "";
+}
+
+function parseClassTimeLabel(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+
+  const normalized = text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+  const rangeMatch = normalized.match(/(\d{1,2})(?::(\d{2}))?\s*(?:as|a|ate|-)\s*(\d{1,2})(?::(\d{2}))?/);
+  if (rangeMatch) {
+    const startHour = rangeMatch[1].padStart(2, "0");
+    const startMinute = rangeMatch[2] || "00";
+    const endHour = rangeMatch[3].padStart(2, "0");
+    const endMinute = rangeMatch[4] || "00";
+    return `${startHour}:${startMinute}-${endHour}:${endMinute}`;
+  }
+
+  const simpleMatch = normalized.match(/(\d{1,2})(?::(\d{2}))?/);
+  if (simpleMatch) {
+    return `${simpleMatch[1].padStart(2, "0")}:${simpleMatch[2] || "00"}`;
+  }
+
+  return text;
 }
 
 function addDays(dateString, days) {
@@ -882,6 +946,18 @@ app.get("/api/alunos", async (req, res) => {
           register_created_date,
           status_start_date,
           phone,
+          package_percent,
+          completed_sessions_count,
+          extra_sessions_count,
+          scheduled_sessions_count,
+          presences_count,
+          repositions_count,
+          presence_percent,
+          schedule_note,
+          class_day,
+          class_time,
+          current_course,
+          current_lesson,
           updated_at
         FROM student_registry
         ORDER BY student_name COLLATE NOCASE
@@ -905,6 +981,18 @@ app.get("/api/alunos", async (req, res) => {
           ...student,
           hours_remaining: hoursRemaining,
           projected_end_date: projection.projectedCompletionDate,
+          package_percent: normalizePercent(student.package_percent),
+          completed_sessions_count: normalizeNumber(student.completed_sessions_count, 0),
+          extra_sessions_count: normalizeNumber(student.extra_sessions_count, 0),
+          scheduled_sessions_count: normalizeNumber(student.scheduled_sessions_count, 0),
+          presences_count: normalizeNumber(student.presences_count, 0),
+          repositions_count: normalizeNumber(student.repositions_count, 0),
+          presence_percent: normalizePercent(student.presence_percent),
+          schedule_note: student.schedule_note || "",
+          class_day: normalizeClassDay(student.class_day || ""),
+          class_time: parseClassTimeLabel(student.class_time || ""),
+          current_course: student.current_course || "",
+          current_lesson: normalizeNumber(student.current_lesson, 0),
           projection
         };
       })
@@ -940,6 +1028,12 @@ app.put("/api/alunos/:id", async (req, res) => {
       ? null
       : normalizeNumber(req.body?.absencesCount, current.absences_count);
     const lastPresenceDate = normalizeDate(req.body?.lastPresenceDate || current.last_presence_date || "");
+    const classDay = normalizeClassDay(req.body?.classDay || current.class_day || "");
+    const classTime = String(req.body?.classTime || current.class_time || "").trim();
+    const currentCourse = String(req.body?.currentCourse || current.current_course || "").trim();
+    const currentLesson = req.body?.currentLesson === "" || req.body?.currentLesson === null || req.body?.currentLesson === undefined
+      ? null
+      : normalizeNumber(req.body?.currentLesson, current.current_lesson);
 
     if (!studentName) {
       return res.status(400).json({ error: "studentName is required." });
@@ -970,6 +1064,10 @@ app.put("/api/alunos/:id", async (req, res) => {
           status_start_date = ?,
           absences_count = COALESCE(?, absences_count),
           last_presence_date = ?,
+          class_day = ?,
+          class_time = ?,
+          current_course = ?,
+          current_lesson = COALESCE(?, current_lesson),
           updated_at = ?
         WHERE id = ?
       `,
@@ -984,6 +1082,10 @@ app.put("/api/alunos/:id", async (req, res) => {
       statusStartDate || null,
       absencesCount,
       lastPresenceDate || null,
+      classDay || null,
+      classTime || null,
+      currentCourse || null,
+      currentLesson,
       updatedAt,
       req.params.id
     );

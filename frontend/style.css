@@ -174,7 +174,9 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;
   padding: 12px 18px;
+  padding-right: 34px;
   border-radius: 14px;
   background: #ffffff;
   border: 1px solid var(--border);
@@ -184,8 +186,21 @@ body {
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
+.menu-dropdown > .dropdown-toggle::after {
+  position: absolute;
+  right: 12px;
+  margin-left: 0;
+}
+
 .menu-dropdown > a.active,
 .menu-dropdown > a:hover {
+  background: rgba(15, 98, 254, 0.1);
+  border-color: rgba(15, 98, 254, 0.35);
+  color: #0d4fd4;
+}
+
+/* Keep parent menu item visually active when one dropdown child is active. */
+.menu-dropdown:has(.dropdown-item.active) > a {
   background: rgba(15, 98, 254, 0.1);
   border-color: rgba(15, 98, 254, 0.35);
   color: #0d4fd4;
@@ -231,6 +246,56 @@ body {
   color: #991b1b;
   border-color: rgba(220, 38, 38, 0.2);
   background: rgba(254, 202, 202, 0.22);
+}
+
+.notifications-list {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.notification-item {
+  width: 100%;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-left-width: 6px;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.notification-item:hover {
+  background: #f8fbff;
+}
+
+.notification-item.severity-alta {
+  border-left-color: #dc2626;
+}
+
+.notification-item.severity-media {
+  border-left-color: #d97706;
+}
+
+.notification-item.severity-baixa {
+  border-left-color: #0f62fe;
+}
+
+.notification-student {
+  font-weight: 700;
+}
+
+.notification-summary {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.notification-meta {
+  color: var(--muted);
+  font-size: 0.88rem;
 }
 
 .stats-grid {
@@ -319,6 +384,77 @@ body {
   line-height: 1.75;
 }
 
+.student-overview {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.student-overview strong {
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.student-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+}
+
+.student-programming-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.student-programming-card,
+.student-programming-unmatched {
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+}
+
+.student-programming-card h3,
+.student-programming-unmatched h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.student-programming-complete {
+  background: linear-gradient(180deg, #f5fff8 0%, #eefbf2 100%);
+}
+
+.student-programming-current {
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+}
+
+.student-programming-pending,
+.student-programming-unmatched {
+  background: linear-gradient(180deg, #fffaf2 0%, #fff4e6 100%);
+}
+
+.student-programming-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.student-programming-list li {
+  color: var(--text);
+}
+
+.student-programming-list li span {
+  color: var(--primary-dark);
+  font-weight: 700;
+  margin-left: 6px;
+}
+
+.student-programming-empty {
+  color: var(--muted);
+}
+
 .helper-list li + li {
   margin-top: 8px;
 }
@@ -342,6 +478,38 @@ body {
 .table-wrap {
   overflow-x: auto;
   padding-bottom: 4px;
+}
+
+.student-registry-toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) 1fr;
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.student-registry-search {
+  display: grid;
+  gap: 8px;
+}
+
+.student-registry-search span,
+.student-registry-meta {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.student-registry-search input {
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.student-registry-meta {
+  margin: 0;
+  align-self: center;
 }
 
 .student-modal {
@@ -375,6 +543,37 @@ body {
 .student-edit-form {
   display: grid;
   gap: 18px;
+}
+
+.student-form-section {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(15, 98, 254, 0.12);
+  border-radius: 20px;
+  background: #ffffff;
+}
+
+.student-form-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.student-form-section-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.student-form-section-header span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.schedule-section {
+  background: linear-gradient(180deg, #f9fbff 0%, #f3f7ff 100%);
 }
 
 .student-modal-summary {
@@ -488,6 +687,194 @@ body {
 
 #studentsTable_wrapper .dt-layout-cell {
   min-width: 0;
+}
+
+#studentsTable_wrapper .dt-search {
+  display: none;
+}
+
+.class-schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.class-schedule-column {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+  border: 1px solid rgba(15, 98, 254, 0.12);
+  min-height: 220px;
+}
+
+.class-schedule-column-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.class-schedule-column-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.class-schedule-column-header span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.class-schedule-card {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 98, 254, 0.1);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.class-schedule-card:hover,
+.class-schedule-column:hover {
+  border-color: rgba(15, 98, 254, 0.24);
+}
+
+.class-schedule-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.class-schedule-card-header span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.class-schedule-card-students {
+  display: grid;
+  gap: 8px;
+}
+
+.class-schedule-day-dropzone {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px dashed rgba(15, 98, 254, 0.24);
+  background: rgba(15, 98, 254, 0.04);
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.class-student-chip {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  text-align: left;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 98, 254, 0.14);
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  color: var(--text);
+  cursor: grab;
+}
+
+.class-student-chip:active {
+  cursor: grabbing;
+}
+
+.class-student-chip.is-selected {
+  border-color: rgba(15, 98, 254, 0.6);
+  box-shadow: 0 0 0 2px rgba(15, 98, 254, 0.18);
+}
+
+.class-student-chip strong {
+  font-size: 0.93rem;
+}
+
+.class-student-chip small,
+.class-student-chip span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.class-schedule-column.is-drop-target,
+.class-schedule-card.is-drop-target {
+  outline: 2px dashed rgba(15, 98, 254, 0.45);
+  outline-offset: 2px;
+}
+
+.class-schedule-card:hover,
+.class-schedule-column:hover {
+  border-color: rgba(15, 98, 254, 0.24);
+}
+
+.class-schedule-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.class-schedule-card-header span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.class-schedule-card-students {
+  display: grid;
+  gap: 8px;
+}
+
+.class-student-chip {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  text-align: left;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 98, 254, 0.14);
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  color: var(--text);
+  cursor: grab;
+}
+
+.class-student-chip:active {
+  cursor: grabbing;
+}
+
+.class-student-chip strong {
+  font-size: 0.93rem;
+}
+
+.class-student-chip small,
+.class-student-chip span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.class-schedule-column.is-drop-target,
+.class-schedule-card.is-drop-target {
+  outline: 2px dashed rgba(15, 98, 254, 0.45);
+  outline-offset: 2px;
+}
+
+.class-schedule-card strong {
+  font-size: 0.95rem;
+}
+
+.class-schedule-card span {
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+
+.class-schedule-card small,
+.class-schedule-empty {
+  color: var(--muted);
+}
+
+.class-schedule-empty {
+  margin: 0;
 }
 
 .rules-generate-form {
@@ -626,8 +1013,10 @@ table {
 }
 
 @media (max-width: 992px) {
+  .student-registry-toolbar,
   .student-form-grid,
-  .student-modal-summary {
+  .student-modal-summary,
+  .class-schedule-grid {
     grid-template-columns: 1fr;
   }
 
@@ -773,6 +1162,20 @@ tr:hover {
 
   .menu {
     flex-direction: column;
+  }
+
+  .menu > a,
+  .menu > .menu-dropdown,
+  .menu > .menu-dropdown > a {
+    width: 100%;
+  }
+
+  .menu > .menu-dropdown > a {
+    justify-content: space-between;
+  }
+
+  .menu-dropdown .dropdown-menu {
+    width: 100%;
   }
 
   .server-status {

@@ -40,6 +40,8 @@ const controlsMessage = document.getElementById("controlsMessage");
 const holidayRulesMessage = document.getElementById("holidayRulesMessage");
 const holidayRulesFeedback = document.getElementById("holidayRulesFeedback");
 const selectedStudentDetails = document.getElementById("selectedStudentDetails");
+const studentsSearchInput = document.getElementById("studentsSearchInput");
+const studentsSearchMeta = document.getElementById("studentsSearchMeta");
 const studentEditModalEl = document.getElementById("studentEditModal");
 const studentEditForm = document.getElementById("studentEditForm");
 const studentEditIdInput = document.getElementById("studentEditId");
@@ -54,14 +56,31 @@ const studentEditRegisterStartDateInput = document.getElementById("studentEditRe
 const studentEditStatusStartDateInput = document.getElementById("studentEditStatusStartDate");
 const studentEditAbsencesInput = document.getElementById("studentEditAbsences");
 const studentEditLastPresenceInput = document.getElementById("studentEditLastPresence");
+const studentEditClassDayInput = document.getElementById("studentEditClassDay");
+const studentEditClassTimeInput = document.getElementById("studentEditClassTime");
+const studentEditCurrentCourseInput = document.getElementById("studentEditCurrentCourse");
+const studentEditCurrentLessonInput = document.getElementById("studentEditCurrentLesson");
 const studentEditChangedByInput = document.getElementById("studentEditChangedBy");
 const studentEditSaveButton = document.getElementById("studentEditSaveButton");
+const classScheduleCalendar = document.getElementById("classScheduleCalendar");
+const classScheduleMessage = document.getElementById("classScheduleMessage");
+const scheduleAssignModalEl = document.getElementById("scheduleAssignModal");
+const scheduleAssignHint = document.getElementById("scheduleAssignHint");
+const scheduleAssignTimeInput = document.getElementById("scheduleAssignTime");
+const scheduleAssignSaveButton = document.getElementById("scheduleAssignSaveButton");
+const turmaUnscheduledSearchInput = document.getElementById("turmaUnscheduledSearch");
+const turmaUnscheduledList = document.getElementById("turmaUnscheduledList");
+const turmaUnscheduledMeta = document.getElementById("turmaUnscheduledMeta");
 const holidayRulesGenerateForm = document.getElementById("holidayRulesGenerateForm");
 const holidayYearStartInput = document.getElementById("holidayYearStart");
 const holidayYearEndInput = document.getElementById("holidayYearEnd");
 const holidayRulesTypeFilter = document.getElementById("holidayRulesTypeFilter");
 const holidayRulesBlocksFilter = document.getElementById("holidayRulesBlocksFilter");
 const holidayRulesActiveFilter = document.getElementById("holidayRulesActiveFilter");
+const alertsSummary = document.getElementById("alertsSummary");
+const notificationsList = document.getElementById("notificationsList");
+const notificationPreview = document.getElementById("notificationPreview");
+const copyNotificationButton = document.getElementById("copyNotificationButton");
 
 const exportCourses = document.getElementById("exportCourses");
 const exportControls = document.getElementById("exportControls");
@@ -86,6 +105,16 @@ const tableInstances = new Map();
 const horizontalScrollSync = new Map();
 let studentEditModalInstance = null;
 let activeStudentEditId = null;
+let studentsSearchTerm = "";
+let turmaUnscheduledTerm = "";
+let pendingScheduleStudentId = "";
+let scheduleAssignModalInstance = null;
+let scheduleAssignResolver = null;
+let scheduleAssignModalBound = false;
+
+const CLASS_DAY_ORDER = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+const CLASS_TIME_ORDER = ["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"];
+const ALERT_SEVERITY_ORDER = { alta: 0, media: 1, baixa: 2 };
 
 function destroyEnhancedTable(tableId) {
   const instance = tableInstances.get(tableId);
@@ -357,9 +386,21 @@ function openStudentEditModal(student) {
   studentEditStatusStartDateInput.value = toDateInputValue(student.status_start_date || "");
   studentEditAbsencesInput.value = student.absences_count ?? "";
   studentEditLastPresenceInput.value = toDateInputValue(student.last_presence_date || "");
+  if (studentEditClassDayInput) {
+    studentEditClassDayInput.value = normalizeClassDayValue(student.class_day || "");
+  }
+  if (studentEditClassTimeInput) {
+    studentEditClassTimeInput.value = student.class_time || "";
+  }
+  if (studentEditCurrentCourseInput) {
+    studentEditCurrentCourseInput.value = student.current_course || "";
+  }
+  if (studentEditCurrentLessonInput) {
+    studentEditCurrentLessonInput.value = student.current_lesson ?? "";
+  }
 
   const saved = localStorage.getItem("changedByName") || "";
-  if (studentEditChangedByInput && !studentEditChangedByInput.value) {
+  if (studentEditChangedByInput) {
     studentEditChangedByInput.value = saved;
   }
 
@@ -542,6 +583,413 @@ function normalizeLookupText(value) {
     .trim();
 }
 
+function normalizeClassDayValue(value) {
+  const normalized = normalizeLookupText(value);
+  const values = {
+    segunda: "Segunda",
+    terca: "Terça",
+    quarta: "Quarta",
+    quinta: "Quinta",
+    sexta: "Sexta",
+    sabado: "Sábado"
+  };
+
+  return values[normalized] || "";
+}
+
+function normalizeClassTimeValue(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+
+  const normalized = text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+  const rangeMatch = normalized.match(/(\d{1,2})(?::(\d{2}))?\s*(?:as|a|ate|-)\s*(\d{1,2})(?::(\d{2}))?/);
+  if (rangeMatch) {
+    const startHour = rangeMatch[1].padStart(2, "0");
+    const startMinute = rangeMatch[2] || "00";
+    const endHour = rangeMatch[3].padStart(2, "0");
+    const endMinute = rangeMatch[4] || "00";
+    return `${startHour}:${startMinute}-${endHour}:${endMinute}`;
+  }
+
+  const simpleMatch = normalized.match(/(\d{1,2})(?::(\d{2}))?/);
+  if (simpleMatch) {
+    return `${simpleMatch[1].padStart(2, "0")}:${simpleMatch[2] || "00"}`;
+  }
+
+  const parts = text.split(/[,;|]/).map((entry) => entry.trim()).filter(Boolean);
+  if (!parts.length) return "";
+  if (parts.length === 1) return parts[0];
+
+  return `${parts[0]}-${parts[parts.length - 1]}`;
+}
+
+function formatClassTimeLabel(value) {
+  const normalized = normalizeClassTimeValue(value);
+  if (!normalized) return "Horário não informado";
+  const [start, end] = normalized.split("-");
+  return end ? `${start} às ${end}` : start;
+}
+
+function formatClassTimeKey(value) {
+  return normalizeClassTimeValue(value);
+}
+
+function toIsoDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getCalendarBlockedDateSet() {
+  const blocked = new Set();
+
+  store.holidays.forEach((item) => {
+    const date = String(item?.blocked_date || "").trim();
+    if (date) blocked.add(date);
+  });
+
+  store.vacations.forEach((item) => {
+    const start = String(item?.start_date || "").trim();
+    const end = String(item?.end_date || "").trim();
+    if (!start || !end) return;
+
+    let cursor = new Date(`${start}T12:00:00`);
+    const last = new Date(`${end}T12:00:00`);
+    if (Number.isNaN(cursor.getTime()) || Number.isNaN(last.getTime())) return;
+
+    while (cursor <= last) {
+      blocked.add(toIsoDateKey(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  });
+
+  return blocked;
+}
+
+function getNextClassForStudent(student) {
+  const classDay = normalizeClassDayValue(student?.class_day || "");
+  const classTime = normalizeClassTimeValue(student?.class_time || "");
+  if (!classDay || !classTime) return null;
+
+  const weekdayByDayName = {
+    Segunda: 1,
+    "Terça": 2,
+    Quarta: 3,
+    Quinta: 4,
+    Sexta: 5,
+    "Sábado": 6
+  };
+
+  const targetWeekday = weekdayByDayName[classDay];
+  if (targetWeekday === undefined) return null;
+
+  const blockedDates = getCalendarBlockedDateSet();
+  const now = new Date();
+
+  for (let offset = 0; offset <= 60; offset += 1) {
+    const candidate = new Date(now);
+    candidate.setHours(12, 0, 0, 0);
+    candidate.setDate(now.getDate() + offset);
+
+    if (candidate.getDay() !== targetWeekday) continue;
+
+    const isoDate = toIsoDateKey(candidate);
+    if (blockedDates.has(isoDate)) continue;
+
+    return {
+      day: classDay,
+      timeLabel: formatClassTimeLabel(classTime),
+      isoDate
+    };
+  }
+
+  return null;
+}
+
+function compareClassTimeKeys(left, right) {
+  const leftIndex = CLASS_TIME_ORDER.indexOf(left.split("-")[0]);
+  const rightIndex = CLASS_TIME_ORDER.indexOf(right.split("-")[0]);
+  return leftIndex - rightIndex || left.localeCompare(right, "pt-BR");
+}
+
+function matchesStudentSearch(student) {
+  if (!studentsSearchTerm) return true;
+
+  const haystack = [
+    student.student_name,
+    student.responsible,
+    student.phone,
+    student.class_day,
+    student.class_time,
+    student.attendance_status
+  ].map(normalizeLookupText).join(" ");
+
+  return haystack.includes(studentsSearchTerm);
+}
+
+function updateStudentsSearchMeta(total, visible) {
+  if (!studentsSearchMeta) return;
+
+  if (!total) {
+    studentsSearchMeta.textContent = "Ainda não há alunos importados para pesquisar.";
+    return;
+  }
+
+  if (!studentsSearchTerm) {
+    studentsSearchMeta.textContent = `${total} alunos carregados para consulta e edição.`;
+    return;
+  }
+
+  studentsSearchMeta.textContent = `${visible} de ${total} alunos correspondem à busca atual.`;
+}
+
+function getWeeklyScheduleStudents() {
+  return store.students
+    .filter((student) => normalizeClassDayValue(student.class_day) && String(student.class_time || "").trim())
+    .sort((left, right) => {
+      const dayDiff = CLASS_DAY_ORDER.indexOf(normalizeClassDayValue(left.class_day))
+        - CLASS_DAY_ORDER.indexOf(normalizeClassDayValue(right.class_day));
+
+      if (dayDiff !== 0) return dayDiff;
+
+      return compareClassTimeKeys(formatClassTimeKey(left.class_time), formatClassTimeKey(right.class_time));
+    });
+}
+
+function getWeeklyScheduleGroups() {
+  const groups = new Map();
+
+  getWeeklyScheduleStudents().forEach((student) => {
+    const day = normalizeClassDayValue(student.class_day);
+    const timeKey = formatClassTimeKey(student.class_time);
+    const key = `${day}|${timeKey}`;
+
+    if (!groups.has(key)) {
+      groups.set(key, { day, timeKey, students: [] });
+    }
+
+    groups.get(key).students.push(student);
+  });
+
+  const grouped = [];
+  CLASS_DAY_ORDER.forEach((day) => {
+    [...groups.values()]
+      .filter((group) => group.day === day)
+      .sort((left, right) => compareClassTimeKeys(left.timeKey, right.timeKey))
+      .forEach((group) => grouped.push(group));
+  });
+
+  return grouped;
+}
+
+function studentScheduleLabel(student) {
+  const day = normalizeClassDayValue(student.class_day) || "Sem dia";
+  const time = formatClassTimeLabel(student.class_time);
+  return `${day} • ${time}`;
+}
+
+function setClassScheduleFeedback(message) {
+  if (!classScheduleMessage) return;
+  classScheduleMessage.textContent = message || "";
+}
+
+function selectStudentForScheduleMove(studentId) {
+  const currentId = String(studentId || "");
+  if (!currentId) return;
+
+  pendingScheduleStudentId = pendingScheduleStudentId === currentId ? "" : currentId;
+  const selectedStudent = store.students.find((student) => String(student.id) === pendingScheduleStudentId);
+
+  if (selectedStudent) {
+    setClassScheduleFeedback(`Aluno selecionado: ${selectedStudent.student_name}. Agora clique no dia/turma de destino.`);
+  } else {
+    setClassScheduleFeedback("Seleção de aluno cancelada.");
+  }
+}
+
+function resolveScheduledStudentId(event) {
+  const draggedId = String(event?.dataTransfer?.getData("text/student-id") || "").trim();
+  if (draggedId) return draggedId;
+  return String(pendingScheduleStudentId || "").trim();
+}
+
+async function handleScheduleTargetInteraction(classDay, event = null) {
+  const studentId = resolveScheduledStudentId(event);
+  if (!studentId) {
+    setClassScheduleFeedback("Selecione um aluno para mover: clique no aluno e depois no destino.");
+    return;
+  }
+
+  await promptAndMoveStudentToDay(studentId, classDay);
+}
+
+async function updateStudentSchedule(studentId, classDay, classTime) {
+  const changedBy = getChangedBy();
+  if (!changedBy) return false;
+
+  const normalizedTime = normalizeClassTimeValue(classTime) || String(classTime || "").trim();
+  if (!classDay || !normalizedTime) {
+    setClassScheduleFeedback("Informe dia e horário válidos para salvar a turma.");
+    return false;
+  }
+
+  try {
+    await fetchJson(`${activeApiBaseUrl}/alunos/${studentId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        studentName: store.students.find((student) => String(student.id) === String(studentId))?.student_name || "",
+        classDay,
+        classTime: normalizedTime,
+        changedBy
+      })
+    });
+
+    await refreshData();
+    pendingScheduleStudentId = "";
+    setClassScheduleFeedback(`Turma atualizada: ${classDay} • ${formatClassTimeLabel(normalizedTime)}.`);
+    return true;
+  } catch (error) {
+    setClassScheduleFeedback(`Falha ao salvar turma: ${error.message}`);
+    return false;
+  }
+}
+
+async function promptAndMoveStudentToDay(studentId, classDay) {
+  const student = store.students.find((item) => String(item.id) === String(studentId));
+  const fallbackTime = normalizeClassTimeValue(student?.class_time || "") || "";
+  const existingTimes = getWeeklyScheduleGroups()
+    .filter((group) => group.day === classDay)
+    .map((group) => formatClassTimeLabel(group.timeKey));
+  const hints = existingTimes.length
+    ? `Horários já existentes em ${classDay}: ${existingTimes.join(", ")}`
+    : `Ainda não há turma criada em ${classDay}.`;
+  const enteredTime = await requestScheduleTime(classDay, fallbackTime, hints);
+  if (enteredTime === null) return;
+
+  const trimmedTime = String(enteredTime).trim();
+  if (!trimmedTime) {
+    setClassScheduleFeedback("Horário não informado. Nenhuma turma foi alterada.");
+    return;
+  }
+
+  await updateStudentSchedule(studentId, classDay, trimmedTime);
+}
+
+function bindScheduleAssignModal() {
+  if (scheduleAssignModalBound || !scheduleAssignModalEl || typeof bootstrap === "undefined") return;
+
+  scheduleAssignModalBound = true;
+  scheduleAssignModalInstance = new bootstrap.Modal(scheduleAssignModalEl, {
+    backdrop: "static",
+    keyboard: true
+  });
+
+  scheduleAssignSaveButton?.addEventListener("click", () => {
+    if (!scheduleAssignResolver) return;
+    const value = String(scheduleAssignTimeInput?.value || "").trim();
+    const resolve = scheduleAssignResolver;
+    scheduleAssignResolver = null;
+    scheduleAssignModalInstance?.hide();
+    resolve(value);
+  });
+
+  scheduleAssignModalEl.addEventListener("hidden.bs.modal", () => {
+    if (!scheduleAssignResolver) return;
+    const resolve = scheduleAssignResolver;
+    scheduleAssignResolver = null;
+    resolve(null);
+  });
+}
+
+function requestScheduleTime(classDay, fallbackTime, hintText) {
+  bindScheduleAssignModal();
+
+  if (!scheduleAssignModalInstance || !scheduleAssignTimeInput) {
+    setClassScheduleFeedback("Não foi possível abrir o formulário de horário nesta tela.");
+    return Promise.resolve(null);
+  }
+
+  return new Promise((resolve) => {
+    scheduleAssignResolver = resolve;
+    if (scheduleAssignHint) {
+      scheduleAssignHint.textContent = `${hintText} Exemplo: 19 as 21.`;
+    }
+    scheduleAssignTimeInput.value = fallbackTime || "";
+    const title = scheduleAssignModalEl.querySelector("#scheduleAssignModalLabel");
+    if (title) {
+      title.textContent = `Informar horário para ${classDay}`;
+    }
+    scheduleAssignModalInstance.show();
+    setTimeout(() => {
+      scheduleAssignTimeInput.focus();
+      scheduleAssignTimeInput.select();
+    }, 50);
+  });
+}
+
+function getUnscheduledStudents() {
+  return store.students
+    .filter((student) => !normalizeClassDayValue(student.class_day) || !normalizeClassTimeValue(student.class_time))
+    .sort((left, right) => String(left.student_name || "").localeCompare(String(right.student_name || ""), "pt-BR"));
+}
+
+function renderUnscheduledStudents() {
+  if (!turmaUnscheduledList) return;
+
+  turmaUnscheduledList.innerHTML = "";
+  const allUnscheduled = getUnscheduledStudents();
+  const visibleStudents = turmaUnscheduledTerm
+    ? allUnscheduled.filter((student) => normalizeLookupText(student.student_name).includes(turmaUnscheduledTerm))
+    : allUnscheduled;
+
+  if (turmaUnscheduledMeta) {
+    turmaUnscheduledMeta.textContent = `${visibleStudents.length} de ${allUnscheduled.length} aluno(s) sem turma.`;
+  }
+
+  if (!visibleStudents.length) {
+    const empty = document.createElement("p");
+    empty.className = "class-schedule-empty";
+    empty.textContent = "Nenhum aluno sem turma encontrado.";
+    turmaUnscheduledList.appendChild(empty);
+    return;
+  }
+
+  visibleStudents.forEach((student) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "class-student-chip";
+    chip.draggable = true;
+    chip.dataset.studentId = student.id;
+    chip.title = "Arraste para um dia/horário ou clique para editar";
+    chip.innerHTML = `
+      <strong>${student.student_name || "-"}</strong>
+      <small>${student.responsible || "Sem responsável"}</small>
+      <span>${studentScheduleLabel(student)}</span>
+    `;
+    chip.addEventListener("dragstart", (event) => {
+      event.dataTransfer.setData("text/student-id", String(student.id));
+      event.dataTransfer.effectAllowed = "move";
+    });
+    chip.addEventListener("click", (event) => {
+      event.stopPropagation();
+      selectStudentForScheduleMove(student.id);
+      renderUnscheduledStudents();
+      renderWeeklyClassSchedule();
+    });
+    if (String(student.id) === String(pendingScheduleStudentId)) {
+      chip.classList.add("is-selected");
+    }
+    turmaUnscheduledList.appendChild(chip);
+  });
+}
+
 function parseStudentPlannedCourseNames(student) {
   const raw = String(student?.enrolled_in || "").trim();
   if (!raw) return [];
@@ -629,6 +1077,83 @@ function getMappedProgressForStudent(student, mappedCourses) {
   return {
     completed,
     pending: Math.max(mappedCourses.length - completed, 0)
+  };
+}
+
+function getStudentProgrammingBuckets(student) {
+  const mapping = getStudentCourseMapping(student);
+  const normalizedStudentName = normalizeLookupText(student?.student_name || "");
+  const normalizedCurrentCourse = normalizeLookupText(student?.current_course || "");
+
+  const progressByCourseId = new Map(
+    store.progress
+      .filter((item) => normalizeLookupText(item.studentName) === normalizedStudentName)
+      .map((item) => [String(item.courseId || ""), item])
+  );
+
+  const completedCourses = [];
+  const inProgressCourses = [];
+  const pendingCourses = [];
+
+  mapping.matchedCourses.forEach((course) => {
+    const progressItem = progressByCourseId.get(String(course.id));
+    if (progressItem && Number(progressItem.percentComplete || 0) >= 1) {
+      completedCourses.push({
+        name: course.name,
+        status: progressItem.status || "CONCLUÍDO",
+        percentComplete: progressItem.percentComplete
+      });
+      return;
+    }
+
+    if (progressItem) {
+      inProgressCourses.push({
+        name: course.name,
+        status: progressItem.status || "EM ANDAMENTO",
+        percentComplete: progressItem.percentComplete
+      });
+      return;
+    }
+
+    pendingCourses.push({ name: course.name });
+  });
+
+  const plannedOrderMap = new Map();
+  mapping.plannedNames.forEach((name, index) => {
+    const normalized = normalizeLookupText(name);
+    if (normalized) plannedOrderMap.set(normalized, index);
+  });
+
+  const compareByPlannedOrder = (left, right) => {
+    const leftIndex = plannedOrderMap.get(normalizeLookupText(left.name));
+    const rightIndex = plannedOrderMap.get(normalizeLookupText(right.name));
+    const safeLeft = Number.isInteger(leftIndex) ? leftIndex : Number.MAX_SAFE_INTEGER;
+    const safeRight = Number.isInteger(rightIndex) ? rightIndex : Number.MAX_SAFE_INTEGER;
+    if (safeLeft !== safeRight) return safeLeft - safeRight;
+    return String(left.name || "").localeCompare(String(right.name || ""), "pt-BR");
+  };
+
+  const compareWithCurrentFirst = (left, right) => {
+    if (normalizedCurrentCourse) {
+      const leftIsCurrent = normalizeLookupText(left.name) === normalizedCurrentCourse;
+      const rightIsCurrent = normalizeLookupText(right.name) === normalizedCurrentCourse;
+      if (leftIsCurrent !== rightIsCurrent) {
+        return leftIsCurrent ? -1 : 1;
+      }
+    }
+    return compareByPlannedOrder(left, right);
+  };
+
+  completedCourses.sort(compareByPlannedOrder);
+  inProgressCourses.sort(compareWithCurrentFirst);
+  pendingCourses.sort(compareByPlannedOrder);
+
+  return {
+    mapping,
+    completedCourses,
+    inProgressCourses,
+    pendingCourses,
+    unmatchedNames: mapping.unmatchedNames
   };
 }
 
@@ -760,11 +1285,15 @@ function renderStudents() {
     if (studentsMessage) {
       studentsMessage.textContent = "Nenhum aluno importado ainda.";
     }
+    updateStudentsSearchMeta(0, 0);
     return;
   }
 
+  const filteredStudents = store.students.filter(matchesStudentSearch);
+  updateStudentsSearchMeta(store.students.length, filteredStudents.length);
+
   if (studentsMessage) {
-    studentsMessage.textContent = "";
+    studentsMessage.textContent = filteredStudents.length ? "" : "Nenhum aluno encontrado para a busca informada.";
   }
 
   store.students.forEach((student) => {
@@ -775,7 +1304,9 @@ function renderStudents() {
       option.textContent = `${student.student_name} - ${contracted}`;
       studentSelect.appendChild(option);
     }
+  });
 
+  filteredStudents.forEach((student) => {
     if (studentsTableBody) {
       const projection = student.projection || {};
       const projectionStatusClass = getProjectionVisualClass(projection.rhythmStatus);
@@ -823,6 +1354,10 @@ async function saveStudentEdit() {
     statusStartDate: String(studentEditStatusStartDateInput.value || "").trim(),
     absencesCount: String(studentEditAbsencesInput.value || "").trim(),
     lastPresenceDate: String(studentEditLastPresenceInput.value || "").trim(),
+    currentCourse: String(studentEditCurrentCourseInput?.value || "").trim(),
+    currentLesson: String(studentEditCurrentLessonInput?.value || "").trim(),
+    classDay: normalizeClassDayValue(studentEditClassDayInput?.value || ""),
+    classTime: String(studentEditClassTimeInput?.value || "").trim(),
     changedBy
   };
 
@@ -875,6 +1410,37 @@ if (studentEditForm) {
 if (studentEditSaveButton) {
   studentEditSaveButton.addEventListener("click", () => {
     saveStudentEdit();
+  });
+}
+
+if (studentsSearchInput) {
+  studentsSearchInput.addEventListener("input", () => {
+    studentsSearchTerm = normalizeLookupText(studentsSearchInput.value);
+    renderStudents();
+  });
+}
+
+if (copyNotificationButton) {
+  copyNotificationButton.addEventListener("click", async () => {
+    const text = String(notificationPreview?.value || "").trim();
+    if (!text) {
+      alert("Selecione um aviso para gerar a mensagem antes de copiar.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      alert("Mensagem copiada para a área de transferência.");
+    } catch {
+      alert("Não foi possível copiar automaticamente. Copie manualmente o texto do campo.");
+    }
+  });
+}
+
+if (turmaUnscheduledSearchInput) {
+  turmaUnscheduledSearchInput.addEventListener("input", () => {
+    turmaUnscheduledTerm = normalizeLookupText(turmaUnscheduledSearchInput.value);
+    renderUnscheduledStudents();
   });
 }
 
@@ -954,30 +1520,223 @@ function renderSelectedStudent(student) {
 
   const projection = student.projection || {};
   const projectionStatusClass = getProjectionVisualClass(projection.rhythmStatus);
-  const mapping = getStudentCourseMapping(student);
-  const progress = getMappedProgressForStudent(student, mapping.matchedCourses);
-  const plannedSummary = mapping.plannedNames.length
-    ? `${mapping.matchedCourses.length}/${mapping.plannedNames.length} cursos mapeados`
+  const buckets = getStudentProgrammingBuckets(student);
+  const progress = getMappedProgressForStudent(student, buckets.mapping.matchedCourses);
+  const plannedSummary = buckets.mapping.plannedNames.length
+    ? `${buckets.mapping.matchedCourses.length}/${buckets.mapping.plannedNames.length} cursos mapeados`
     : "Sem programação informada";
-  const missingCatalogSummary = mapping.unmatchedNames.length
-    ? mapping.unmatchedNames.slice(0, 4).join(", ")
-    : "-";
+
+  const renderCourseList = (items, emptyMessage, formatter = (item) => item.name) => {
+    if (!items.length) {
+      return `<li class="student-programming-empty">${emptyMessage}</li>`;
+    }
+
+    return items
+      .map((item) => `<li>${formatter(item)}</li>`)
+      .join("");
+  };
+
   selectedStudentDetails.innerHTML = `
-    <strong>${student.student_name || "-"}</strong><br />
-    Início base: ${formatDate(projection.startDate)}<br />
-    Status: ${student.attendance_status || "-"}<br />
-    Faltas: ${student.absences_count ?? "-"}<br />
-    Ultima presenca: ${formatDate(student.last_presence_date)}<br />
-    Restante: ${formatHours(projection.remainingHours)}h<br />
-    Previsão final: <span class="projection-chip ${projectionStatusClass}">${formatDate(projection.projectedCompletionDate)}</span><br />
-    Situação: ${projection.rhythmStatus || "-"}<br />
-    Responsavel: ${student.responsible || "-"}<br />
-    Telefone: ${student.phone || "-"}<br />
-    Programação: ${plannedSummary}<br />
-    Acompanhados na programação: ${progress.completed}<br />
-    Pendentes da programação: ${progress.pending}<br />
-    Cursos sem correspondência no catálogo: ${missingCatalogSummary}
+    <div class="student-overview">
+      <strong>${student.student_name || "-"}</strong>
+      <div class="student-overview-grid">
+        <span><b>Início base:</b> ${formatDate(projection.startDate)}</span>
+        <span><b>Status:</b> ${student.attendance_status || "-"}</span>
+        <span><b>Faltas:</b> ${student.absences_count ?? "-"}</span>
+        <span><b>Última presença:</b> ${formatDate(student.last_presence_date)}</span>
+        <span><b>Restante:</b> ${formatHours(projection.remainingHours)}h</span>
+        <span><b>Situação:</b> ${projection.rhythmStatus || "-"}</span>
+        <span><b>Responsável:</b> ${student.responsible || "-"}</span>
+        <span><b>Telefone:</b> ${student.phone || "-"}</span>
+        <span><b>% pacote:</b> ${student.package_percent != null ? formatPercent(student.package_percent) : "-"}</span>
+        <span><b>% presença:</b> ${student.presence_percent != null ? formatPercent(student.presence_percent) : "-"}</span>
+        <span><b>Aulas realizadas:</b> ${student.completed_sessions_count ?? "-"}</span>
+        <span><b>Aulas extras:</b> ${student.extra_sessions_count ?? "-"}</span>
+        <span><b>Agendamentos:</b> ${student.scheduled_sessions_count ?? "-"}</span>
+        <span><b>Presenças:</b> ${student.presences_count ?? "-"}</span>
+        <span><b>Reposições:</b> ${student.repositions_count ?? "-"}</span>
+      </div>
+      <div><b>Agenda:</b> ${student.class_day || "-"} • ${student.class_time || "-"}</div>
+      <div><b>Curso atual:</b> ${student.current_course || "-"} • <b>Aula atual:</b> ${student.current_lesson ?? "-"}</div>
+      <div><b>Observação do relatório:</b> ${student.schedule_note || "-"}</div>
+      <div><b>Previsão final:</b> <span class="projection-chip ${projectionStatusClass}">${formatDate(projection.projectedCompletionDate)}</span></div>
+      <div><b>Programação:</b> ${plannedSummary}</div>
+      <div><b>Acompanhados na programação:</b> ${progress.completed}</div>
+      <div><b>Pendentes da programação:</b> ${progress.pending}</div>
+    </div>
+
+    <div class="student-programming-grid">
+      <section class="student-programming-card student-programming-complete">
+        <h3>Concluídos</h3>
+        <ul class="student-programming-list">
+          ${renderCourseList(
+            buckets.completedCourses,
+            "Nenhum curso concluído identificado.",
+            (item) => `${item.name} <span>${formatPercent(item.percentComplete)}</span>`
+          )}
+        </ul>
+      </section>
+
+      <section class="student-programming-card student-programming-current">
+        <h3>Cursando</h3>
+        <ul class="student-programming-list">
+          ${renderCourseList(
+            buckets.inProgressCourses,
+            "Nenhum curso em andamento identificado.",
+            (item) => `${item.name} <span>${formatPercent(item.percentComplete)}</span>`
+          )}
+        </ul>
+      </section>
+
+      <section class="student-programming-card student-programming-pending">
+        <h3>Faltam cursar</h3>
+        <ul class="student-programming-list">
+          ${renderCourseList(buckets.pendingCourses, "Nenhum curso pendente identificado.")}
+        </ul>
+      </section>
+    </div>
+
+    <div class="student-programming-unmatched">
+      <h3>Sem correspondência no catálogo</h3>
+      <ul class="student-programming-list">
+        ${renderCourseList(buckets.unmatchedNames.map((name) => ({ name })), "Todos os cursos do relatório já foram reconhecidos.")}
+      </ul>
+    </div>
   `;
+}
+
+function buildNotificationMessage(student, alertItem) {
+  const nextClass = getNextClassForStudent(student);
+  const dateText = nextClass
+    ? `${formatDate(nextClass.isoDate)} às ${nextClass.timeLabel}`
+    : `${student.class_day || "dia não definido"} • ${formatClassTimeLabel(student.class_time)}`;
+
+  return [
+    `Olá ${student.student_name || "aluno(a)"}, tudo bem?`,
+    `Lembrete automático: ${alertItem.summary}.`,
+    `Próxima aula prevista: ${dateText}.`,
+    "Qualquer dúvida, estou à disposição para ajudar na organização do curso."
+  ].join(" ");
+}
+
+function getStudentAlerts() {
+  const alerts = [];
+
+  store.students.forEach((student) => {
+    const contractedHours = Number(student.contracted_hours || 0);
+    const completedHours = Number(student.completed_hours || 0);
+    const remainingHours = Math.max(contractedHours - completedHours, 0);
+    const consumedRate = contractedHours > 0 ? completedHours / contractedHours : 0;
+
+    const scheduledLessons = Number(student.scheduled_sessions_count || 0);
+    const completedLessons = Number(student.completed_sessions_count || 0);
+    const remainingLessons = scheduledLessons > 0 ? Math.max(scheduledLessons - completedLessons, 0) : null;
+
+    const presenceRate = Number(student.presence_percent || 0);
+    const absences = Number(student.absences_count || 0);
+
+    if (contractedHours > 0 && (remainingHours <= 2 || consumedRate >= 0.9)) {
+      alerts.push({
+        student,
+        severity: remainingHours <= 1 ? "alta" : "media",
+        type: "horas",
+        summary: `faltam ${formatHours(remainingHours)}h para finalizar as horas contratadas`
+      });
+    }
+
+    if (remainingLessons !== null && remainingLessons <= 2) {
+      alerts.push({
+        student,
+        severity: remainingLessons <= 1 ? "alta" : "media",
+        type: "apostila",
+        summary: `faltam ${remainingLessons} aula(s) para concluir a apostila atual`
+      });
+    }
+
+    if ((student.presence_percent != null && presenceRate < 0.75) || absences >= 8) {
+      alerts.push({
+        student,
+        severity: presenceRate < 0.6 || absences >= 12 ? "alta" : "media",
+        type: "presenca",
+        summary: `atenção em presença/faltas (${formatPercent(presenceRate)}, ${absences} falta(s))`
+      });
+    }
+
+    if (!normalizeClassDayValue(student.class_day) || !normalizeClassTimeValue(student.class_time)) {
+      alerts.push({
+        student,
+        severity: "alta",
+        type: "agenda",
+        summary: "aluno sem dia e horário definidos na agenda"
+      });
+    }
+  });
+
+  alerts.sort((left, right) => {
+    const severityDiff = (ALERT_SEVERITY_ORDER[left.severity] ?? 9) - (ALERT_SEVERITY_ORDER[right.severity] ?? 9);
+    if (severityDiff !== 0) return severityDiff;
+    return String(left.student.student_name || "").localeCompare(String(right.student.student_name || ""), "pt-BR");
+  });
+
+  return alerts;
+}
+
+function renderNotifications() {
+  if (!notificationsList) return;
+
+  notificationsList.innerHTML = "";
+  const alerts = getStudentAlerts();
+  const highCount = alerts.filter((item) => item.severity === "alta").length;
+  const mediumCount = alerts.filter((item) => item.severity === "media").length;
+
+  if (alertsSummary) {
+    alertsSummary.textContent = alerts.length
+      ? `${alerts.length} aviso(s): ${highCount} alta prioridade e ${mediumCount} média prioridade.`
+      : "Nenhum aviso crítico no momento.";
+  }
+
+  if (!alerts.length) {
+    if (notificationPreview) {
+      notificationPreview.value = "";
+    }
+    if (copyNotificationButton) {
+      copyNotificationButton.disabled = true;
+    }
+    const empty = document.createElement("p");
+    empty.className = "class-schedule-empty";
+    empty.textContent = "Sem pendências para notificação agora.";
+    notificationsList.appendChild(empty);
+    return;
+  }
+
+  const selectAlert = (alertItem) => {
+    const message = buildNotificationMessage(alertItem.student, alertItem);
+    if (notificationPreview) {
+      notificationPreview.value = message;
+    }
+    if (copyNotificationButton) {
+      copyNotificationButton.disabled = false;
+    }
+  };
+
+  alerts.forEach((alertItem, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `notification-item severity-${alertItem.severity}`;
+    button.innerHTML = `
+      <span class="notification-student">${alertItem.student.student_name || "-"}</span>
+      <span class="notification-summary">${alertItem.summary}</span>
+      <span class="notification-meta">${alertItem.student.class_day || "Sem dia"} • ${formatClassTimeLabel(alertItem.student.class_time)}</span>
+    `;
+    button.addEventListener("click", () => {
+      selectAlert(alertItem);
+    });
+    notificationsList.appendChild(button);
+
+    if (index === 0) {
+      selectAlert(alertItem);
+    }
+  });
 }
 
 function renderProgress(targetBody = progressTableBody) {
@@ -1078,6 +1837,134 @@ function renderCalendar() {
       <td>${item.description || "-"}</td>
     `;
     vacationsTableBody.appendChild(row);
+  });
+
+  renderWeeklyClassSchedule();
+  renderUnscheduledStudents();
+}
+
+function renderWeeklyClassSchedule() {
+  if (!classScheduleCalendar) return;
+
+  classScheduleCalendar.innerHTML = "";
+  const groupedTurmas = getWeeklyScheduleGroups();
+
+  if (classScheduleMessage) {
+    classScheduleMessage.textContent = groupedTurmas.length
+      ? ""
+      : "Nenhuma turma com dia e horário cadastrados ainda.";
+  }
+
+  CLASS_DAY_ORDER.forEach((classDay) => {
+    const column = document.createElement("section");
+    column.className = "class-schedule-column";
+    column.addEventListener("dragover", (event) => event.preventDefault());
+    column.addEventListener("drop", async (event) => {
+      const targetElement = event.target instanceof Element ? event.target : null;
+      if (targetElement?.closest(".class-schedule-card") || targetElement?.closest(".class-schedule-day-dropzone")) {
+        return;
+      }
+      event.preventDefault();
+      await handleScheduleTargetInteraction(classDay, event);
+    });
+    column.addEventListener("click", async (event) => {
+      const targetElement = event.target instanceof Element ? event.target : null;
+      if (targetElement?.closest(".class-schedule-card") || targetElement?.closest(".class-schedule-day-dropzone") || targetElement?.closest(".class-student-chip")) {
+        return;
+      }
+      await handleScheduleTargetInteraction(classDay, null);
+    });
+
+    const dayGroups = groupedTurmas.filter((group) => group.day === classDay);
+
+    column.innerHTML = `
+      <div class="class-schedule-column-header">
+        <h3>${classDay}</h3>
+        <span>${dayGroups.length} turmas</span>
+      </div>
+    `;
+
+    const dayDropzone = document.createElement("div");
+    dayDropzone.className = "class-schedule-day-dropzone";
+    dayDropzone.textContent = "Solte aqui para criar uma nova turma neste dia";
+    dayDropzone.addEventListener("dragover", (event) => event.preventDefault());
+    dayDropzone.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      await handleScheduleTargetInteraction(classDay, event);
+    });
+    dayDropzone.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      await handleScheduleTargetInteraction(classDay, null);
+    });
+    column.appendChild(dayDropzone);
+
+    if (!dayGroups.length) {
+      const empty = document.createElement("p");
+      empty.className = "class-schedule-empty";
+      empty.textContent = "Solte um aluno aqui para criar uma turma.";
+      column.appendChild(empty);
+    } else {
+      dayGroups.forEach((group) => {
+        const card = document.createElement("article");
+        card.className = "class-schedule-card";
+
+        card.dataset.classDay = group.day;
+        card.dataset.classTime = group.timeKey;
+        card.addEventListener("dragover", (event) => event.preventDefault());
+        card.addEventListener("drop", async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          await handleScheduleTargetInteraction(group.day, event);
+        });
+        card.addEventListener("click", async (event) => {
+          const targetElement = event.target instanceof Element ? event.target : null;
+          if (targetElement?.closest(".class-student-chip")) return;
+          await handleScheduleTargetInteraction(group.day, null);
+        });
+
+        card.innerHTML = `
+          <div class="class-schedule-card-header">
+            <strong>${formatClassTimeLabel(group.timeKey)}</strong>
+            <span>${group.students.length} aluno(s)</span>
+          </div>
+          <div class="class-schedule-card-students"></div>
+        `;
+
+        const list = card.querySelector(".class-schedule-card-students");
+        group.students.forEach((student) => {
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "class-student-chip";
+          chip.draggable = true;
+          chip.dataset.studentId = student.id;
+          chip.title = "Arraste para outra turma ou clique para editar";
+          chip.innerHTML = `
+            <strong>${student.student_name || "-"}</strong>
+            <small>${student.responsible || "Sem responsável"}</small>
+            <span>${studentScheduleLabel(student)}</span>
+          `;
+          chip.addEventListener("dragstart", (event) => {
+            event.dataTransfer.setData("text/student-id", String(student.id));
+            event.dataTransfer.effectAllowed = "move";
+          });
+          chip.addEventListener("click", (event) => {
+            event.stopPropagation();
+            selectStudentForScheduleMove(student.id);
+            renderWeeklyClassSchedule();
+            renderUnscheduledStudents();
+          });
+          if (String(student.id) === String(pendingScheduleStudentId)) {
+            chip.classList.add("is-selected");
+          }
+          list.appendChild(chip);
+        });
+
+        column.appendChild(card);
+      });
+    }
+
+    classScheduleCalendar.appendChild(column);
   });
 }
 
@@ -1210,6 +2097,7 @@ async function refreshData() {
   renderCalendar();
   renderHolidayRules();
   renderAudit();
+  renderNotifications();
   initializeDateFields();
 }
 
@@ -1516,6 +2404,7 @@ async function init() {
   renderCalendar();
   renderHolidayRules();
   renderAudit();
+  renderNotifications();
   applyStudentCourseFilter(null);
   renderSelectedStudent(null);
   initializeDateFields();
