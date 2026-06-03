@@ -42,6 +42,15 @@
       </nav>
       <div id="serverStatus" class="server-status">Verificando status do servidor...</div>
 
+      <section class="card dashboard-hero-card">
+        <div class="section-header">
+          <h2>Leitura rápida do sistema</h2>
+          <span class="section-note">O que está acontecendo agora sem precisar abrir outras telas.</span>
+        </div>
+        <div id="dashboardOverview" class="info dashboard-overview">Carregando resumo inicial...</div>
+        <div id="dashboardOverviewDetails" class="dashboard-overview-details"></div>
+      </section>
+
       <section class="stats-grid">
         <article class="stat-card">
           <span class="stat-label">Cursos cadastrados</span>
@@ -55,6 +64,47 @@
           <span class="stat-label">Progresso médio</span>
           <strong id="averageProgress">0%</strong>
         </article>
+        <article class="stat-card">
+          <span class="stat-label">Alunos importados</span>
+          <strong id="totalStudents">0</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Alertas urgentes</span>
+          <strong id="highAlertsCount">0</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Apostilas para comprar</span>
+          <strong id="apostilaPurchaseCount">0</strong>
+        </article>
+      </section>
+
+      <section class="content-grid content-grid-inline dashboard-panels">
+        <article class="card helper-card">
+          <div class="section-header">
+            <h2>Alertas do momento</h2>
+            <span class="section-note">Foco no que merece atenção agora.</span>
+          </div>
+          <div id="dashboardAlertsSummary" class="info">Carregando alertas...</div>
+          <div id="dashboardAlertsList" class="dashboard-list"></div>
+        </article>
+
+        <article class="card helper-card">
+          <div class="section-header">
+            <h2>Chamadas recentes</h2>
+            <span class="section-note">Últimas turmas com presença/falta/reposição.</span>
+          </div>
+          <div id="dashboardAttendanceSummary" class="info">Carregando chamadas...</div>
+          <div id="dashboardAttendanceList" class="dashboard-list"></div>
+        </article>
+      </section>
+
+      <section class="card helper-card">
+        <div class="section-header">
+          <h2>Apostilas e agenda</h2>
+          <span class="section-note">Status da compra de apostilas e alunos sem turma.</span>
+        </div>
+        <div id="dashboardApostilaSummary" class="info">Carregando resumo de apostilas...</div>
+        <div id="dashboardScheduleSummary" class="dashboard-overview-details"></div>
       </section>
 
       <section class="card">

@@ -17,6 +17,9 @@ const serverStatus = document.getElementById("serverStatus");
 const totalCourses = document.getElementById("totalCourses");
 const totalControls = document.getElementById("totalControls");
 const averageProgress = document.getElementById("averageProgress");
+const totalStudents = document.getElementById("totalStudents");
+const highAlertsCount = document.getElementById("highAlertsCount");
+const apostilaPurchaseCount = document.getElementById("apostilaPurchaseCount");
 
 const courseSelect = document.getElementById("courseSelect");
 const studentSelect = document.getElementById("studentSelect");
@@ -29,6 +32,8 @@ const studentsTableBody = document.querySelector("#studentsTable tbody");
 const auditTableBody = document.querySelector("#auditTable tbody");
 const controlsTableBody = document.querySelector("#controlsTable tbody");
 const holidayRulesTableBody = document.querySelector("#holidayRulesTable tbody");
+const apostilaTableBody = document.querySelector("#apostilaTable tbody");
+const attendanceHistoryTableBody = document.querySelector("#attendanceHistoryTable tbody");
 
 const coursesMessage = document.getElementById("coursesMessage");
 const progressMessage = document.getElementById("progressMessage");
@@ -39,6 +44,7 @@ const auditMessage = document.getElementById("auditMessage");
 const controlsMessage = document.getElementById("controlsMessage");
 const holidayRulesMessage = document.getElementById("holidayRulesMessage");
 const holidayRulesFeedback = document.getElementById("holidayRulesFeedback");
+const attendanceHistoryMessage = document.getElementById("attendanceHistoryMessage");
 const selectedStudentDetails = document.getElementById("selectedStudentDetails");
 const studentsSearchInput = document.getElementById("studentsSearchInput");
 const studentsSearchMeta = document.getElementById("studentsSearchMeta");
@@ -68,6 +74,14 @@ const scheduleAssignModalEl = document.getElementById("scheduleAssignModal");
 const scheduleAssignHint = document.getElementById("scheduleAssignHint");
 const scheduleAssignTimeInput = document.getElementById("scheduleAssignTime");
 const scheduleAssignSaveButton = document.getElementById("scheduleAssignSaveButton");
+const attendanceModalEl = document.getElementById("attendanceModal");
+const attendanceModalSubtitle = document.getElementById("attendanceModalSubtitle");
+const attendanceSessionDateInput = document.getElementById("attendanceSessionDate");
+const attendanceModalSummary = document.getElementById("attendanceModalSummary");
+const attendanceModalEmpty = document.getElementById("attendanceModalEmpty");
+const attendanceStudentsTableBody = document.getElementById("attendanceStudentsTableBody");
+const attendanceMessagePreview = document.getElementById("attendanceMessagePreview");
+const attendanceSaveButton = document.getElementById("attendanceSaveButton");
 const turmaUnscheduledSearchInput = document.getElementById("turmaUnscheduledSearch");
 const turmaUnscheduledList = document.getElementById("turmaUnscheduledList");
 const turmaUnscheduledMeta = document.getElementById("turmaUnscheduledMeta");
@@ -81,6 +95,8 @@ const alertsSummary = document.getElementById("alertsSummary");
 const notificationsList = document.getElementById("notificationsList");
 const notificationPreview = document.getElementById("notificationPreview");
 const copyNotificationButton = document.getElementById("copyNotificationButton");
+const apostilaSummary = document.getElementById("apostilaSummary");
+const apostilaStatusMessage = document.getElementById("apostilaStatusMessage");
 
 const exportCourses = document.getElementById("exportCourses");
 const exportControls = document.getElementById("exportControls");
@@ -89,6 +105,14 @@ const exportHolidays = document.getElementById("exportHolidays");
 const exportVacations = document.getElementById("exportVacations");
 const exportAudit = document.getElementById("exportAudit");
 const exportPdf = document.getElementById("exportPdf");
+const dashboardOverview = document.getElementById("dashboardOverview");
+const dashboardOverviewDetails = document.getElementById("dashboardOverviewDetails");
+const dashboardAlertsSummary = document.getElementById("dashboardAlertsSummary");
+const dashboardAlertsList = document.getElementById("dashboardAlertsList");
+const dashboardAttendanceSummary = document.getElementById("dashboardAttendanceSummary");
+const dashboardAttendanceList = document.getElementById("dashboardAttendanceList");
+const dashboardApostilaSummary = document.getElementById("dashboardApostilaSummary");
+const dashboardScheduleSummary = document.getElementById("dashboardScheduleSummary");
 
 let store = {
   courses: [],
@@ -98,7 +122,20 @@ let store = {
   holidays: [],
   vacations: [],
   audits: [],
-  holidayRules: []
+  holidayRules: [],
+  attendanceHistory: [],
+  apostilas: {
+    summary: {
+      eligibleCount: 0,
+      receivedCount: 0,
+      stockDebitedCount: 0,
+      pendingDebitCount: 0,
+      stockQuantity: 0,
+      purchaseRequired: false,
+      purchaseQuantity: 0
+    },
+    students: []
+  }
 };
 
 const tableInstances = new Map();
@@ -111,6 +148,14 @@ let pendingScheduleStudentId = "";
 let scheduleAssignModalInstance = null;
 let scheduleAssignResolver = null;
 let scheduleAssignModalBound = false;
+let attendanceModalInstance = null;
+let attendanceModalBound = false;
+let attendanceModalState = {
+  classDay: "",
+  classTime: "",
+  sessionDate: "",
+  students: []
+};
 
 const CLASS_DAY_ORDER = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const CLASS_TIME_ORDER = ["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"];
@@ -236,7 +281,9 @@ function loadLocalStore() {
       holidays: parsed.holidays || [],
       vacations: parsed.vacations || [],
       audits: parsed.audits || [],
-      holidayRules: parsed.holidayRules || []
+      holidayRules: parsed.holidayRules || [],
+      attendanceHistory: parsed.attendanceHistory || [],
+      apostilas: parsed.apostilas || store.apostilas
     };
   } catch {
     store = {
@@ -247,7 +294,20 @@ function loadLocalStore() {
       holidays: [],
       vacations: [],
       audits: [],
-      holidayRules: []
+      holidayRules: [],
+      attendanceHistory: [],
+      apostilas: {
+        summary: {
+          eligibleCount: 0,
+          receivedCount: 0,
+          stockDebitedCount: 0,
+          pendingDebitCount: 0,
+          stockQuantity: 0,
+          purchaseRequired: false,
+          purchaseQuantity: 0
+        },
+        students: []
+      }
     };
   }
 }
@@ -269,7 +329,7 @@ async function fetchJson(url, options) {
 async function loadStore() {
   for (const candidate of API_BASE_URL_CANDIDATES) {
     try {
-      const [courses, students, controls, progress, holidays, vacations, audits, holidayRules] = await Promise.all([
+      const [courses, students, controls, progress, holidays, vacations, audits, holidayRules, attendanceHistory, apostilas] = await Promise.all([
         fetchJson(`${candidate}/cursos`, { cache: "no-store" }),
         fetchJson(`${candidate}/alunos`, { cache: "no-store" }),
         fetchJson(`${candidate}/controle`, { cache: "no-store" }),
@@ -277,11 +337,13 @@ async function loadStore() {
         fetchJson(`${candidate}/calendario/feriados`, { cache: "no-store" }),
         fetchJson(`${candidate}/calendario/ferias`, { cache: "no-store" }),
         fetchJson(`${candidate}/auditoria`, { cache: "no-store" }),
-        fetchJson(`${candidate}/calendario/feriados/regras`, { cache: "no-store" })
+        fetchJson(`${candidate}/calendario/feriados/regras`, { cache: "no-store" }),
+        fetchJson(`${candidate}/presencas/historico`, { cache: "no-store" }),
+        fetchJson(`${candidate}/apostilas`, { cache: "no-store" })
       ]);
 
       activeApiBaseUrl = candidate;
-      store = { courses, students, controls, progress, holidays, vacations, audits, holidayRules };
+      store = { courses, students, controls, progress, holidays, vacations, audits, holidayRules, attendanceHistory, apostilas };
       saveStore();
       setServerStatus(true, `Servidor conectado (${candidate}).`);
       return true;
@@ -337,6 +399,275 @@ function formatPercent(value) {
 function formatHours(value) {
   const number = Number(value) || 0;
   return Number.isInteger(number) ? String(number) : number.toFixed(1).replace(/\.0$/, "");
+}
+
+function buildAttendanceAbsenceMessage(student, sessionDate) {
+  return `Olá ${student.student_name || "aluno(a)"} notamos sua ausência na aula de ${student.class_day || "dia"} em ${formatDate(sessionDate)}, está tudo bem? Se precisar de algo, estamos à disposição.`;
+}
+
+function getTodayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getStudentsForSchedule(classDay, classTime) {
+  return store.students
+    .filter((student) => normalizeClassDayValue(student.class_day) === classDay && normalizeClassTimeValue(student.class_time) === normalizeClassTimeValue(classTime))
+    .sort((left, right) => String(left.student_name || "").localeCompare(String(right.student_name || ""), "pt-BR"));
+}
+
+function attendanceStatusOptions(selectedValue = "presence") {
+  const options = [
+    ["presence", "Presença"],
+    ["absence", "Falta"],
+    ["reposition", "Reposição"]
+  ];
+
+  return options.map(([value, label]) => `<option value="${value}" ${value === selectedValue ? "selected" : ""}>${label}</option>`).join("");
+}
+
+function bindAttendanceModal() {
+  if (attendanceModalBound || !attendanceModalEl || typeof bootstrap === "undefined") return;
+
+  attendanceModalBound = true;
+  attendanceModalInstance = new bootstrap.Modal(attendanceModalEl, {
+    backdrop: "static",
+    keyboard: true
+  });
+
+  attendanceSaveButton?.addEventListener("click", saveAttendanceModal);
+
+  attendanceSessionDateInput?.addEventListener("change", async () => {
+    if (!attendanceModalState.classDay || !attendanceModalState.classTime) return;
+    attendanceModalState.sessionDate = String(attendanceSessionDateInput.value || getTodayIsoDate()).trim();
+    await loadAttendanceModalData();
+  });
+
+  attendanceModalEl.addEventListener("hidden.bs.modal", () => {
+    attendanceModalState = {
+      classDay: "",
+      classTime: "",
+      sessionDate: "",
+      students: []
+    };
+    if (attendanceStudentsTableBody) {
+      attendanceStudentsTableBody.innerHTML = "";
+    }
+    if (attendanceMessagePreview) {
+      attendanceMessagePreview.value = "";
+    }
+  });
+}
+
+async function loadAttendanceModalData() {
+  if (!attendanceModalState.classDay || !attendanceModalState.classTime || !attendanceModalState.sessionDate) return;
+
+  const students = getStudentsForSchedule(attendanceModalState.classDay, attendanceModalState.classTime);
+  attendanceModalState.students = students;
+  let existingRecords = [];
+
+  try {
+    const existing = await fetchJson(
+      `${activeApiBaseUrl}/presencas?classDay=${encodeURIComponent(attendanceModalState.classDay)}&classTime=${encodeURIComponent(attendanceModalState.classTime)}&sessionDate=${encodeURIComponent(attendanceModalState.sessionDate)}`,
+      { cache: "no-store" }
+    );
+    existingRecords = Array.isArray(existing.records) ? existing.records : [];
+  } catch {
+    existingRecords = [];
+  }
+
+  const existingStatusByStudent = new Map(
+    existingRecords.map((record) => [String(record.student_id || record.studentId || ""), String(record.status || "presence")])
+  );
+
+  if (attendanceModalSummary) {
+    attendanceModalSummary.textContent = `${students.length} aluno(s) nesta turma em ${attendanceModalState.classDay} • ${formatClassTimeLabel(attendanceModalState.classTime)}.`;
+  }
+
+  if (attendanceModalEmpty) {
+    attendanceModalEmpty.classList.toggle("d-none", students.length > 0);
+  }
+
+  if (!attendanceStudentsTableBody) return;
+
+  attendanceStudentsTableBody.innerHTML = "";
+
+  if (!students.length) {
+    return;
+  }
+
+  students.forEach((student) => {
+    const selectedStatus = existingStatusByStudent.get(String(student.id)) || "presence";
+    const row = document.createElement("tr");
+    row.className = "attendance-student-row";
+    row.dataset.studentId = student.id;
+    row.innerHTML = `
+      <td>
+        <strong>${student.student_name || "-"}</strong><br />
+        <small class="text-muted">${student.attendance_status || "Sem chamada registrada"}</small>
+      </td>
+      <td>${student.responsible || "-"}</td>
+      <td>${student.current_lesson ?? "-"}</td>
+      <td>
+        <select class="form-select form-select-sm attendance-status-select" data-student-id="${student.id}">
+          ${attendanceStatusOptions(selectedStatus)}
+        </select>
+      </td>
+      <td>
+        <button type="button" class="btn btn-outline-primary btn-sm attendance-message-button" data-student-id="${student.id}" disabled>
+          Copiar mensagem
+        </button>
+      </td>
+    `;
+    attendanceStudentsTableBody.appendChild(row);
+  });
+
+  attendanceStudentsTableBody.querySelectorAll(".attendance-status-select").forEach((select) => {
+    select.addEventListener("change", () => {
+      const row = select.closest("tr");
+      if (!row) return;
+      const copyButton = row.querySelector(".attendance-message-button");
+      const isAbsence = select.value === "absence";
+      if (copyButton) {
+        copyButton.disabled = !isAbsence;
+      }
+      updateAttendancePreview();
+    });
+  });
+
+  attendanceStudentsTableBody.querySelectorAll(".attendance-message-button").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const studentId = button.dataset.studentId;
+      const student = attendanceModalState.students.find((item) => String(item.id) === String(studentId));
+      if (!student) return;
+      const message = buildAttendanceAbsenceMessage(student, attendanceModalState.sessionDate);
+      if (attendanceMessagePreview) {
+        attendanceMessagePreview.value = message;
+      }
+      try {
+        await navigator.clipboard.writeText(message);
+        setClassScheduleFeedback(`Mensagem de falta copiada para ${student.student_name}.`);
+      } catch {
+        setClassScheduleFeedback(`Mensagem pronta para ${student.student_name}. Copie manualmente se necessário.`);
+      }
+    });
+  });
+
+  attendanceStudentsTableBody.querySelectorAll(".attendance-status-select").forEach((select) => {
+    const row = select.closest("tr");
+    const copyButton = row?.querySelector(".attendance-message-button");
+    if (copyButton) {
+      copyButton.disabled = select.value !== "absence";
+    }
+  });
+
+  updateAttendancePreview();
+}
+
+function updateAttendancePreview() {
+  if (!attendanceStudentsTableBody || !attendanceMessagePreview) return;
+
+  const selectedSelect = Array.from(attendanceStudentsTableBody.querySelectorAll(".attendance-status-select")).find((select) => select.value === "absence");
+  if (selectedSelect) {
+    const row = selectedSelect.closest("tr");
+    if (row) {
+      const studentId = row.dataset.studentId;
+      const student = attendanceModalState.students.find((item) => String(item.id) === String(studentId));
+      attendanceMessagePreview.value = student ? buildAttendanceAbsenceMessage(student, attendanceModalState.sessionDate) : "";
+      return;
+    }
+  }
+
+  attendanceMessagePreview.value = "";
+}
+
+async function openAttendanceModal(classDay, classTime) {
+  bindAttendanceModal();
+
+  if (!attendanceModalInstance || !attendanceSessionDateInput) {
+    setClassScheduleFeedback("Não foi possível abrir a chamada nesta tela.");
+    return;
+  }
+
+  attendanceModalState.classDay = classDay;
+  attendanceModalState.classTime = classTime;
+  attendanceModalState.sessionDate = getTodayIsoDate();
+  attendanceSessionDateInput.value = attendanceModalState.sessionDate;
+
+  if (attendanceModalSubtitle) {
+    attendanceModalSubtitle.textContent = `${classDay} • ${formatClassTimeLabel(classTime)}`;
+  }
+
+  attendanceModalInstance.show();
+  await loadAttendanceModalData();
+}
+
+async function saveAttendanceModal() {
+  if (!attendanceModalState.classDay || !attendanceModalState.classTime || !attendanceModalState.sessionDate) return;
+
+  const changedBy = getChangedBy();
+  if (!changedBy) return;
+
+  const rows = Array.from(attendanceStudentsTableBody?.querySelectorAll("tr[data-student-id]") || []);
+  const records = rows.map((row) => {
+    const studentId = row.dataset.studentId;
+    const select = row.querySelector(".attendance-status-select");
+    return {
+      studentId,
+      status: select?.value || "presence"
+    };
+  });
+
+  if (!records.length) {
+    setClassScheduleFeedback("Nenhum aluno disponível para chamada neste horário.");
+    return;
+  }
+
+  if (attendanceSaveButton) {
+    attendanceSaveButton.disabled = true;
+  }
+
+  try {
+    await fetchJson(`${activeApiBaseUrl}/presencas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        classDay: attendanceModalState.classDay,
+        classTime: attendanceModalState.classTime,
+        sessionDate: attendanceModalState.sessionDate,
+        records,
+        changedBy
+      })
+    });
+    attendanceModalInstance?.hide();
+    await refreshData();
+    setClassScheduleFeedback(`Chamada salva para ${attendanceModalState.classDay} • ${formatClassTimeLabel(attendanceModalState.classTime)}.`);
+  } catch (error) {
+    setClassScheduleFeedback(error.message);
+  } finally {
+    if (attendanceSaveButton) {
+      attendanceSaveButton.disabled = false;
+    }
+  }
+}
+
+function getApostilaStatus(student) {
+  const currentLesson = Number(student?.current_lesson || 0);
+  const received = Number(student?.apostila_received || 0) === 1;
+  const debited = Number(student?.apostila_stock_debited || 0) === 1;
+
+  if (received || currentLesson >= 5) {
+    return {
+      label: "Recebida",
+      badgeClass: debited ? "bg-success" : "bg-warning text-dark",
+      detail: debited ? "Baixada do estoque" : "Pendente de baixa"
+    };
+  }
+
+  return {
+    label: "Pendente",
+    badgeClass: "bg-secondary",
+    detail: "Abaixo da aula 5"
+  };
 }
 
 function getProjectionVisualClass(status) {
@@ -561,6 +892,10 @@ function renderSummary() {
     totalControls.textContent = String(store.controls.length);
   }
 
+  if (totalStudents) {
+    totalStudents.textContent = String(store.students.length);
+  }
+
   if (averageProgress) {
     if (!store.progress.length) {
       averageProgress.textContent = "0%";
@@ -570,6 +905,88 @@ function renderSummary() {
       const rate = totalHours > 0 ? totalConsumed / totalHours : 0;
       averageProgress.textContent = formatPercent(rate);
     }
+  }
+
+  const alerts = getStudentAlerts();
+  const highAlerts = alerts.filter((item) => item.severity === "alta").length;
+  const apostilaSummaryData = store.apostilas?.summary || {};
+  const purchaseCount = Number(apostilaSummaryData.purchaseRequired ? apostilaSummaryData.purchaseQuantity : 0);
+
+  if (highAlertsCount) {
+    highAlertsCount.textContent = String(highAlerts);
+  }
+
+  if (apostilaPurchaseCount) {
+    apostilaPurchaseCount.textContent = String(purchaseCount);
+  }
+
+  if (dashboardOverview) {
+    const scheduledStudents = store.students.filter((student) => normalizeClassDayValue(student.class_day) && normalizeClassTimeValue(student.class_time)).length;
+    const unscheduledStudents = Math.max(store.students.length - scheduledStudents, 0);
+    dashboardOverview.textContent = `${store.students.length} aluno(s), ${alerts.length} aviso(s), ${highAlerts} em prioridade alta e ${purchaseCount} apostila(s) para comprar.`;
+
+    if (dashboardOverviewDetails) {
+      dashboardOverviewDetails.innerHTML = [
+        {
+          title: `${scheduledStudents} com turma definida`,
+          text: `${unscheduledStudents} ainda sem dia/horário.`
+        },
+        {
+          title: `${store.attendanceHistory.length} chamadas registradas`,
+          text: store.attendanceHistory.length ? `Última chamada em ${formatDate(store.attendanceHistory[0].session_date)}.` : "Ainda não há chamadas registradas."
+        },
+        {
+          title: `${store.progress.filter((item) => Number(item.percentComplete || 0) >= 0.9).length} perto de finalizar`,
+          text: `${store.progress.filter((item) => Number(item.percentComplete || 0) >= 1).length} já concluídos.`
+        }
+      ]
+        .map((item) => `<div class="dashboard-pill"><strong>${item.title}</strong><span>${item.text}</span></div>`)
+        .join("");
+    }
+  }
+}
+
+function renderDashboardPanels() {
+  const alerts = getStudentAlerts();
+  const criticalAlerts = alerts.slice(0, 5);
+  const recentSessions = store.attendanceHistory.slice(0, 5);
+  const apostilaSummaryData = store.apostilas?.summary || {};
+
+  if (dashboardAlertsSummary) {
+    dashboardAlertsSummary.textContent = alerts.length
+      ? `${alerts.length} alerta(s) no total, com ${alerts.filter((item) => item.severity === "alta").length} de alta prioridade.`
+      : "Nenhum alerta crítico no momento.";
+  }
+
+  if (dashboardAlertsList) {
+    dashboardAlertsList.innerHTML = criticalAlerts.length
+      ? criticalAlerts.map((item) => `<div class="dashboard-list-item severity-${item.severity}"><strong>${item.student.student_name || "-"}</strong><span>${item.summary}</span></div>`).join("")
+      : '<div class="dashboard-list-item severity-baixa"><strong>Tudo tranquilo</strong><span>Sem pendências urgentes agora.</span></div>';
+  }
+
+  if (dashboardAttendanceSummary) {
+    dashboardAttendanceSummary.textContent = recentSessions.length
+      ? `Mostrando as ${Math.min(recentSessions.length, 5)} chamadas mais recentes.`
+      : "Nenhuma chamada registrada ainda.";
+  }
+
+  if (dashboardAttendanceList) {
+    dashboardAttendanceList.innerHTML = recentSessions.length
+      ? recentSessions.map((session) => `<div class="dashboard-list-item"><strong>${session.class_day || "-"} • ${formatClassTimeLabel(session.class_time)}</strong><span>${formatDate(session.session_date)} - ${session.total_records || 0} aluno(s), ${session.absences_count || 0} falta(s), ${session.repositions_count || 0} reposição(ões).</span></div>`).join("")
+      : '<div class="dashboard-list-item severity-baixa"><strong>Sem histórico</strong><span>Ainda não há chamadas registradas.</span></div>';
+  }
+
+  if (dashboardApostilaSummary) {
+    dashboardApostilaSummary.textContent = apostilaSummaryData.purchaseRequired
+      ? `Comprar ${apostilaSummaryData.purchaseQuantity || 0} apostila(s) agora. ${apostilaSummaryData.pendingDebitCount || 0} alunos aguardando baixa.`
+      : `Apostilas em dia. ${apostilaSummaryData.receivedCount || 0} alunos já marcados e estoque atual ${apostilaSummaryData.stockQuantity || 0}.`;
+  }
+
+  if (dashboardScheduleSummary) {
+    const unscheduledStudents = store.students.filter((student) => !normalizeClassDayValue(student.class_day) || !normalizeClassTimeValue(student.class_time)).slice(0, 5);
+    dashboardScheduleSummary.innerHTML = unscheduledStudents.length
+      ? unscheduledStudents.map((student) => `<div class="dashboard-list-item"><strong>${student.student_name || "-"}</strong><span>Sem turma definida. ${student.responsible || "Sem responsável"}</span></div>`).join("")
+      : '<div class="dashboard-list-item severity-baixa"><strong>Agenda completa</strong><span>Nenhum aluno sem turma no momento.</span></div>';
   }
 }
 
@@ -1310,6 +1727,7 @@ function renderStudents() {
     if (studentsTableBody) {
       const projection = student.projection || {};
       const projectionStatusClass = getProjectionVisualClass(projection.rhythmStatus);
+      const apostilaStatus = getApostilaStatus(student);
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${student.student_name || "-"}</td>
@@ -1317,6 +1735,7 @@ function renderStudents() {
         <td>${student.responsible || "-"}</td>
         <td>${student.phone || "-"}</td>
         <td>${student.attendance_status || "-"}</td>
+        <td><span class="badge ${apostilaStatus.badgeClass}">${apostilaStatus.label}</span></td>
         <td>${student.absences_count ?? "-"}</td>
         <td>${formatDate(student.last_presence_date)}</td>
         <td>${formatHours(student.contracted_hours)}h</td>
@@ -1332,6 +1751,67 @@ function renderStudents() {
 
   enhanceTable("studentsTable");
   setupHorizontalScrollSync("studentsTable");
+}
+
+function renderApostilas() {
+  const hasDedicatedApostilaData = Boolean(store.apostilas?.students?.length);
+  const sourceStudents = hasDedicatedApostilaData ? store.apostilas.students : store.students.filter((student) => {
+    const lesson = Number(student.current_lesson || 0);
+    return lesson >= 5 || Number(student.apostila_received || 0) === 1;
+  });
+
+  if (apostilaSummary) {
+    const summary = hasDedicatedApostilaData
+      ? (store.apostilas?.summary || {})
+      : {
+          eligibleCount: sourceStudents.filter((student) => Number(student.current_lesson || 0) >= 5).length,
+          receivedCount: sourceStudents.filter((student) => Number(student.apostila_received || 0) === 1).length,
+          stockDebitedCount: sourceStudents.filter((student) => Number(student.apostila_stock_debited || 0) === 1).length,
+          pendingDebitCount: sourceStudents.filter((student) => Number(student.apostila_received || 0) === 1 && Number(student.apostila_stock_debited || 0) !== 1).length,
+          stockQuantity: 0,
+          purchaseRequired: sourceStudents.some((student) => Number(student.apostila_received || 0) === 1 && Number(student.apostila_stock_debited || 0) !== 1),
+          purchaseQuantity: sourceStudents.filter((student) => Number(student.apostila_received || 0) === 1 && Number(student.apostila_stock_debited || 0) !== 1).length
+        };
+    const purchaseText = summary.purchaseRequired ? `Comprar ${summary.purchaseQuantity} apostila(s)` : "Sem necessidade de compra no momento";
+    apostilaSummary.textContent = `${summary.eligibleCount || 0} aluno(s) já passaram da aula 5, ${summary.receivedCount || 0} com apostila registrada, estoque atual ${summary.stockQuantity || 0}, ${purchaseText.toLowerCase()}.`;
+  }
+
+  if (apostilaStatusMessage) {
+    const summary = hasDedicatedApostilaData
+      ? (store.apostilas?.summary || {})
+      : {
+          pendingDebitCount: sourceStudents.filter((student) => Number(student.apostila_received || 0) === 1 && Number(student.apostila_stock_debited || 0) !== 1).length,
+          purchaseRequired: sourceStudents.some((student) => Number(student.apostila_received || 0) === 1 && Number(student.apostila_stock_debited || 0) !== 1)
+        };
+    apostilaStatusMessage.textContent = summary.purchaseRequired
+      ? `Atenção: existem ${summary.pendingDebitCount || 0} apostila(s) aguardando baixa. Reponha o estoque.`
+      : "O estoque de apostilas está em dia para os alunos que já passaram da aula 5.";
+  }
+
+  if (!apostilaTableBody) return;
+
+  apostilaTableBody.innerHTML = "";
+  const apostilaStudents = sourceStudents.slice();
+
+  if (!apostilaStudents.length) {
+    const row = document.createElement("tr");
+    row.innerHTML = '<td colspan="5" class="text-center text-muted py-4">Nenhum aluno elegível para controle de apostilas ainda.</td>';
+    apostilaTableBody.appendChild(row);
+    return;
+  }
+
+  apostilaStudents.forEach((student) => {
+    const status = getApostilaStatus(student);
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${student.student_name || "-"}</td>
+      <td>${student.current_course || "-"}</td>
+      <td>${student.current_lesson ?? "-"}</td>
+      <td><span class="badge ${status.badgeClass}">${status.label}</span></td>
+      <td>${status.detail}</td>
+    `;
+    apostilaTableBody.appendChild(row);
+  });
 }
 
 async function editStudent(student) {
@@ -1477,6 +1957,41 @@ function renderAudit() {
   enhanceTable("auditTable");
 }
 
+function renderAttendanceHistory() {
+  destroyEnhancedTable("attendanceHistoryTable");
+
+  if (!attendanceHistoryTableBody) return;
+  attendanceHistoryTableBody.innerHTML = "";
+
+  if (!store.attendanceHistory.length) {
+    if (attendanceHistoryMessage) {
+      attendanceHistoryMessage.textContent = "Nenhuma chamada registrada ainda.";
+    }
+    return;
+  }
+
+  if (attendanceHistoryMessage) {
+    attendanceHistoryMessage.textContent = "";
+  }
+
+  store.attendanceHistory.forEach((session) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${formatDate(session.session_date)}</td>
+      <td>${session.class_day || "-"}</td>
+      <td>${formatClassTimeLabel(session.class_time)}</td>
+      <td>${session.total_records ?? 0}</td>
+      <td>${session.presences_count ?? 0}</td>
+      <td>${session.absences_count ?? 0}</td>
+      <td>${session.repositions_count ?? 0}</td>
+      <td>${session.created_by || "-"}</td>
+    `;
+    attendanceHistoryTableBody.appendChild(row);
+  });
+
+  enhanceTable("attendanceHistoryTable");
+}
+
 function renderControls() {
   destroyEnhancedTable("controlsTable");
 
@@ -1520,6 +2035,7 @@ function renderSelectedStudent(student) {
 
   const projection = student.projection || {};
   const projectionStatusClass = getProjectionVisualClass(projection.rhythmStatus);
+  const apostilaStatus = getApostilaStatus(student);
   const buckets = getStudentProgrammingBuckets(student);
   const progress = getMappedProgressForStudent(student, buckets.mapping.matchedCourses);
   const plannedSummary = buckets.mapping.plannedNames.length
@@ -1558,6 +2074,7 @@ function renderSelectedStudent(student) {
       </div>
       <div><b>Agenda:</b> ${student.class_day || "-"} • ${student.class_time || "-"}</div>
       <div><b>Curso atual:</b> ${student.current_course || "-"} • <b>Aula atual:</b> ${student.current_lesson ?? "-"}</div>
+      <div><b>Apostila:</b> ${apostilaStatus.label} • ${apostilaStatus.detail}</div>
       <div><b>Observação do relatório:</b> ${student.schedule_note || "-"}</div>
       <div><b>Previsão final:</b> <span class="projection-chip ${projectionStatusClass}">${formatDate(projection.projectedCompletionDate)}</span></div>
       <div><b>Programação:</b> ${plannedSummary}</div>
@@ -1925,11 +2442,19 @@ function renderWeeklyClassSchedule() {
 
         card.innerHTML = `
           <div class="class-schedule-card-header">
-            <strong>${formatClassTimeLabel(group.timeKey)}</strong>
+            <div class="class-schedule-card-actions">
+              <strong>${formatClassTimeLabel(group.timeKey)}</strong>
+              <button type="button" class="attendance-call-button" data-action="open-attendance">Chamada</button>
+            </div>
             <span>${group.students.length} aluno(s)</span>
           </div>
           <div class="class-schedule-card-students"></div>
         `;
+
+        card.querySelector('[data-action="open-attendance"]')?.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          await openAttendanceModal(group.day, group.timeKey);
+        });
 
         const list = card.querySelector(".class-schedule-card-students");
         group.students.forEach((student) => {
@@ -2089,14 +2614,17 @@ function initializeDateFields() {
 async function refreshData() {
   await loadStore();
   renderSummary();
+  renderDashboardPanels();
   renderCourses();
   renderStudents();
+  renderApostilas();
   renderControls();
   renderProgress();
   renderPreview();
   renderCalendar();
   renderHolidayRules();
   renderAudit();
+  renderAttendanceHistory();
   renderNotifications();
   initializeDateFields();
 }
@@ -2396,14 +2924,17 @@ async function init() {
 
   await loadStore();
   renderSummary();
+  renderDashboardPanels();
   renderCourses();
   renderStudents();
+  renderApostilas();
   renderControls();
   renderProgress();
   renderPreview();
   renderCalendar();
   renderHolidayRules();
   renderAudit();
+  renderAttendanceHistory();
   renderNotifications();
   applyStudentCourseFilter(null);
   renderSelectedStudent(null);

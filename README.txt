@@ -9,7 +9,14 @@ Recursos principais
 - Cadastro de acompanhamentos por aluno/curso
 - Cálculo automático de progresso (90% e 100%) com bloqueio de domingos, feriados e férias
 - Calendário de bloqueios (feriados e períodos de férias)
-- Listagem consolidada de alunos importados (status, faltas, última presença)
+- Agenda semanal de turmas com drag and drop e clique para mover aluno entre dias/horários
+- Página dedicada de Turmas com coluna de sábado e fila de alunos sem turma
+- Listagem consolidada de alunos importados (status, faltas, última presença, curso atual e aula atual)
+- Controle de apostilas por aluno com baixa automática no estoque a partir da aula 5
+- Resumo de estoque e alerta de compra quando houver apostilas pendentes de baixa
+- Painel de avisos automáticos para fim de horas, fim de apostila, presença/faltas e agenda pendente
+- Geração de mensagens prontas com nome do aluno, data e horário da próxima aula
+- Importação consolidada de planilhas Excel/CSV/TSV com merge por nome e apoio a campos extras da planilha
 - Histórico de auditoria com responsável por alteração
 - Exportação Excel (.xlsx) com múltiplas abas
 
@@ -19,6 +26,7 @@ Arquitetura atual
 - backend/: API, regras de negócio e scripts de importação/normalização
 - electron/: bootstrap da aplicação desktop
 - data/: banco SQLite local e arquivos de importação locais
+- assets/: logos e demais imagens usadas pelo app
 
 Páginas disponíveis
 -------------------
@@ -28,6 +36,7 @@ Páginas disponíveis
 - frontend/withdraw.html: cadastro de acompanhamento
 - frontend/estoque.html: visão de progresso
 - frontend/historico.html: calendário e histórico de auditoria
+- frontend/turmas.html: agenda semanal de turmas
 - frontend/export.html: exportação para Excel
 
 Como executar (desenvolvimento)
@@ -45,12 +54,14 @@ Importação e consolidação de alunos
 -----------------------------------
 - Script de importação:
 
-  npm.cmd run import-students -- data/import/arquivo-status.tsv
+  npm.cmd run import-students -- C:\Users\Alunos\Downloads\arquivo.xls
 
 - O importador atual:
   - Padroniza nome de exibição
   - Faz merge por nome normalizado
   - Faz fallback por nome flexível para reduzir duplicidades de digitação
+  - Aceita arquivos .xls, .xlsx, .csv e .tsv
+  - Captura também campos como curso atual, aula atual, dias/horários de agendamento, presença, faltas e reposições
 
 Segurança de dados sensíveis
 ----------------------------
@@ -67,6 +78,13 @@ A tela de exportação gera controle-apostilas.xlsx com abas de:
 - Feriados
 - Férias
 - Auditoria
+
+Turmas e agenda semanal
+-----------------------
+- A agenda semanal trabalha com Segunda a Sábado.
+- Os horários de sábado já são exibidos na grade de turmas.
+- Ao mover um aluno, o sistema pede o horário e grava o dia/horário no banco.
+- O painel de alunos mostra o curso atual, a aula atual e avisos automáticos para apoiar a rotina.
 
 Observações operacionais
 ------------------------

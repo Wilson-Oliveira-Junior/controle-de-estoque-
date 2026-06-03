@@ -262,6 +262,74 @@ async function ensureTables(db) {
   await ensureColumn(db, "student_registry", "class_time", "class_time TEXT");
   await ensureColumn(db, "student_registry", "current_course", "current_course TEXT");
   await ensureColumn(db, "student_registry", "current_lesson", "current_lesson REAL");
+  await ensureColumn(db, "student_registry", "apostila_received", "apostila_received INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(db, "student_registry", "apostila_received_at", "apostila_received_at TEXT");
+  await ensureColumn(db, "student_registry", "apostila_stock_debited", "apostila_stock_debited INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(db, "student_registry", "apostila_stock_debited_at", "apostila_stock_debited_at TEXT");
+}
+
+async function getApostilaInventoryItem(db) {
+  const hasInventoryTable = await db.get(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'inventory'"
+  );
+
+  if (!hasInventoryTable) {
+    return null;
+  }
+
+  return db.get(
+    "SELECT id, name, module, quantity FROM inventory WHERE lower(trim(name)) LIKE ? ORDER BY lower(trim(name)) ASC, lower(trim(module)) ASC LIMIT 1",
+    "%apostila%"
+  );
+}
+
+async function syncApostilaReceipts(db) {
+  const eligibleStudents = await db.all(
+    `
+      SELECT id, current_lesson, apostila_received, apostila_stock_debited
+      FROM student_registry
+      WHERE CAST(COALESCE(current_lesson, 0) AS REAL) >= 5
+      ORDER BY CAST(COALESCE(current_lesson, 0) AS REAL) ASC, student_name COLLATE NOCASE
+    `
+  );
+
+  const now = new Date().toISOString();
+
+  for (const student of eligibleStudents) {
+    if (Number(student.apostila_received || 0) !== 1) {
+      await db.run(
+        `
+          UPDATE student_registry
+          SET apostila_received = 1,
+              apostila_received_at = COALESCE(apostila_received_at, ?)
+          WHERE id = ?
+        `,
+        now,
+        student.id
+      );
+    }
+
+    if (Number(student.apostila_stock_debited || 0) === 1) {
+      continue;
+    }
+
+    const stockItem = await getApostilaInventoryItem(db);
+    if (!stockItem || Number(stockItem.quantity || 0) <= 0) {
+      continue;
+    }
+
+    await db.run("UPDATE inventory SET quantity = ? WHERE id = ?", Number(stockItem.quantity || 0) - 1, stockItem.id);
+    await db.run(
+      `
+        UPDATE student_registry
+        SET apostila_stock_debited = 1,
+            apostila_stock_debited_at = COALESCE(apostila_stock_debited_at, ?)
+        WHERE id = ?
+      `,
+      now,
+      student.id
+    );
+  }
 }
 
 function toStudentRecord(row, sourceFile) {
@@ -632,6 +700,7 @@ async function main() {
   }
 
   const total = await db.get("SELECT COUNT(*) AS count FROM student_registry");
+  await syncApostilaReceipts(db);
   await db.close();
 
   console.log(`Total processado neste lote: ${totalProcessed}`);

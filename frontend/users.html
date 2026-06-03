@@ -69,6 +69,7 @@
                 <th>Responsável</th>
                 <th>Telefone</th>
                 <th>Status</th>
+                <th>Apostila</th>
                 <th>Faltas</th>
                 <th>Última presença</th>
                 <th>Contratado</th>
@@ -96,6 +97,29 @@
           <textarea id="notificationPreview" class="form-control" rows="4" readonly placeholder="Selecione um aviso para gerar a mensagem."></textarea>
         </label>
         <button type="button" id="copyNotificationButton" class="secondary-button" disabled>Copiar mensagem</button>
+      </section>
+
+      <section class="card">
+        <div class="section-header">
+          <h2>Controle de apostilas</h2>
+          <span class="section-note">Alunos com aula 5 ou superior recebem baixa automática no estoque.</span>
+        </div>
+        <div id="apostilaSummary" class="student-registry-meta">Carregando controle de apostilas...</div>
+        <div id="apostilaStatusMessage" class="info"></div>
+        <div class="table-wrap mt-3">
+          <table id="apostilaTable">
+            <thead>
+              <tr>
+                <th>Aluno</th>
+                <th>Curso atual</th>
+                <th>Aula atual</th>
+                <th>Status</th>
+                <th>Baixa no estoque</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </section>
 
       <div class="modal fade" id="studentEditModal" tabindex="-1" aria-hidden="true">

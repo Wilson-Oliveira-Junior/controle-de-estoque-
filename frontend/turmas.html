@@ -95,6 +95,53 @@
       </div>
     </div>
   </div>
+  <div class="modal fade" id="attendanceModal" tabindex="-1" aria-labelledby="attendanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h5 class="modal-title" id="attendanceModalLabel">Chamada da turma</h5>
+            <p id="attendanceModalSubtitle" class="text-muted mb-0">Selecione presença, falta ou reposição.</p>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3 align-items-end mb-3">
+            <div class="col-md-4">
+              <label for="attendanceSessionDate" class="form-label">Data da chamada</label>
+              <input id="attendanceSessionDate" class="form-control" type="date" />
+            </div>
+            <div class="col-md-8">
+              <div id="attendanceModalSummary" class="info mb-0">Carregando alunos da turma...</div>
+            </div>
+          </div>
+          <div id="attendanceModalEmpty" class="alert alert-light border d-none">Nenhum aluno encontrado para este horário.</div>
+          <div class="table-wrap">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Aluno</th>
+                  <th>Responsável</th>
+                  <th>Aula atual</th>
+                  <th>Status</th>
+                  <th>Mensagem de falta</th>
+                </tr>
+              </thead>
+              <tbody id="attendanceStudentsTableBody"></tbody>
+            </table>
+          </div>
+          <label class="form-field mt-3" for="attendanceMessagePreview">
+            <span>Mensagem pronta da falta selecionada</span>
+            <textarea id="attendanceMessagePreview" class="form-control" rows="3" readonly placeholder="Marque uma falta para gerar a mensagem."></textarea>
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="attendanceSaveButton">Salvar chamada</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <script src="apostila-app.js"></script>
 </body>
 </html>

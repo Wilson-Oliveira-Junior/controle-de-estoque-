@@ -105,6 +105,30 @@ async function initDb() {
       change_summary TEXT,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS attendance_sessions (
+      id TEXT PRIMARY KEY,
+      class_day TEXT NOT NULL,
+      class_time TEXT NOT NULL,
+      session_date TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE (class_day, class_time, session_date)
+    );
+
+    CREATE TABLE IF NOT EXISTS attendance_records (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      status TEXT NOT NULL,
+      notes TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE (session_id, student_id),
+      FOREIGN KEY (session_id) REFERENCES attendance_sessions (id)
+    );
   `);
 
   await ensureColumn(db, "course_controls", "student_id", "student_id TEXT");
@@ -118,6 +142,11 @@ async function initDb() {
   await ensureColumn(db, "holiday_rules", "blocks_school", "blocks_school INTEGER NOT NULL DEFAULT 1");
   await ensureColumn(db, "holiday_rules", "weekday", "weekday INTEGER");
   await ensureColumn(db, "holiday_rules", "nth_in_month", "nth_in_month INTEGER");
+
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_attendance_sessions_lookup
+    ON attendance_sessions (class_day, class_time, session_date);
+  `);
 
   const hasStudentRegistry = await db.get(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'student_registry'"
@@ -144,6 +173,10 @@ async function initDb() {
     await ensureColumn(db, "student_registry", "class_time", "class_time TEXT");
     await ensureColumn(db, "student_registry", "current_course", "current_course TEXT");
     await ensureColumn(db, "student_registry", "current_lesson", "current_lesson REAL");
+    await ensureColumn(db, "student_registry", "apostila_received", "apostila_received INTEGER NOT NULL DEFAULT 0");
+    await ensureColumn(db, "student_registry", "apostila_received_at", "apostila_received_at TEXT");
+    await ensureColumn(db, "student_registry", "apostila_stock_debited", "apostila_stock_debited INTEGER NOT NULL DEFAULT 0");
+    await ensureColumn(db, "student_registry", "apostila_stock_debited_at", "apostila_stock_debited_at TEXT");
 
     await db.run(
       `
@@ -155,6 +188,8 @@ async function initDb() {
           AND TRIM(status_start_date) <> ''
       `
     );
+
+    await syncApostilaReceipts(db);
   }
 
   await ensureDefaultHolidayRules(db);
@@ -257,6 +292,157 @@ function normalizeDate(value) {
 function normalizeNumber(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeAttendanceStatus(value) {
+  const text = normalizeLookupText(value);
+  if (text === "falta" || text === "ausente") return "absence";
+  if (text === "reposicao" || text === "reposiçao" || text === "reposição") return "reposition";
+  return "presence";
+}
+
+function attendanceStatusLabel(status) {
+  if (status === "absence") return "Falta";
+  if (status === "reposition") return "Reposição";
+  return "Presença";
+}
+
+async function getApostilaInventoryItem(db) {
+  return db.get(
+    `
+      SELECT *
+      FROM inventory
+      WHERE LOWER(TRIM(name)) LIKE ?
+      ORDER BY LOWER(TRIM(name)) ASC, LOWER(TRIM(module)) ASC
+      LIMIT 1
+    `,
+    "%apostila%"
+  );
+}
+
+async function syncApostilaReceipts(db) {
+  const hasStudentRegistry = await db.get(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'student_registry'"
+  );
+
+  if (!hasStudentRegistry) {
+    return { receivedMarked: 0, stockDebited: 0 };
+  }
+
+  await ensureColumn(db, "student_registry", "apostila_received", "apostila_received INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(db, "student_registry", "apostila_received_at", "apostila_received_at TEXT");
+  await ensureColumn(db, "student_registry", "apostila_stock_debited", "apostila_stock_debited INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(db, "student_registry", "apostila_stock_debited_at", "apostila_stock_debited_at TEXT");
+
+  const eligibleStudents = await db.all(
+    `
+      SELECT id, student_name, current_lesson, apostila_received, apostila_received_at, apostila_stock_debited, apostila_stock_debited_at
+      FROM student_registry
+      WHERE CAST(COALESCE(current_lesson, 0) AS REAL) >= 5
+      ORDER BY CAST(COALESCE(current_lesson, 0) AS REAL) ASC, student_name COLLATE NOCASE
+    `
+  );
+
+  let receivedMarked = 0;
+  let stockDebited = 0;
+  const now = new Date().toISOString();
+
+  for (const student of eligibleStudents) {
+    if (Number(student.apostila_received || 0) !== 1) {
+      await db.run(
+        `
+          UPDATE student_registry
+          SET apostila_received = 1,
+              apostila_received_at = COALESCE(apostila_received_at, ?)
+          WHERE id = ?
+        `,
+        now,
+        student.id
+      );
+      receivedMarked += 1;
+    }
+
+    if (Number(student.apostila_stock_debited || 0) === 1) {
+      continue;
+    }
+
+    const stockItem = await getApostilaInventoryItem(db);
+    if (!stockItem || Number(stockItem.quantity || 0) <= 0) {
+      continue;
+    }
+
+    const updatedQuantity = Number(stockItem.quantity || 0) - 1;
+    await db.run("UPDATE inventory SET quantity = ? WHERE id = ?", updatedQuantity, stockItem.id);
+    await db.run(
+      `
+        UPDATE student_registry
+        SET apostila_stock_debited = 1,
+            apostila_stock_debited_at = COALESCE(apostila_stock_debited_at, ?)
+        WHERE id = ?
+      `,
+      now,
+      student.id
+    );
+    stockDebited += 1;
+  }
+
+  return { receivedMarked, stockDebited };
+}
+
+async function rebuildAttendanceStats(db) {
+  const aggregateRows = await db.all(
+    `
+      SELECT
+        ar.student_id,
+        MAX(ar.student_name) AS student_name,
+        SUM(CASE WHEN ar.status = 'presence' THEN 1 ELSE 0 END) AS presences_count,
+        SUM(CASE WHEN ar.status = 'absence' THEN 1 ELSE 0 END) AS absences_count,
+        SUM(CASE WHEN ar.status = 'reposition' THEN 1 ELSE 0 END) AS repositions_count,
+        MAX(CASE WHEN ar.status IN ('presence', 'reposition') THEN s.session_date ELSE NULL END) AS last_presence_date
+      FROM attendance_records ar
+      INNER JOIN attendance_sessions s ON s.id = ar.session_id
+      GROUP BY ar.student_id
+    `
+  );
+
+  await db.run(
+    `
+      UPDATE student_registry
+      SET
+        presences_count = 0,
+        absences_count = 0,
+        repositions_count = 0,
+        presence_percent = NULL,
+        last_presence_date = NULL
+    `
+  );
+
+  for (const row of aggregateRows) {
+    const presences = normalizeNumber(row.presences_count, 0);
+    const absences = normalizeNumber(row.absences_count, 0);
+    const repositions = normalizeNumber(row.repositions_count, 0);
+    const totalSessions = presences + absences + repositions;
+    const presencePercent = totalSessions > 0 ? (presences + repositions) / totalSessions : null;
+
+    await db.run(
+      `
+        UPDATE student_registry
+        SET
+          presences_count = ?,
+          absences_count = ?,
+          repositions_count = ?,
+          presence_percent = ?,
+          last_presence_date = ?
+        WHERE id = ?
+      `,
+      presences,
+      absences,
+      repositions,
+      presencePercent,
+      row.last_presence_date || null,
+      row.student_id
+    );
+  }
 }
 
 function normalizePercent(value) {
@@ -958,6 +1144,10 @@ app.get("/api/alunos", async (req, res) => {
           class_time,
           current_course,
           current_lesson,
+          apostila_received,
+          apostila_received_at,
+          apostila_stock_debited,
+          apostila_stock_debited_at,
           updated_at
         FROM student_registry
         ORDER BY student_name COLLATE NOCASE
@@ -993,6 +1183,10 @@ app.get("/api/alunos", async (req, res) => {
           class_time: parseClassTimeLabel(student.class_time || ""),
           current_course: student.current_course || "",
           current_lesson: normalizeNumber(student.current_lesson, 0),
+          apostila_received: Number(student.apostila_received || 0) === 1,
+          apostila_received_at: student.apostila_received_at || "",
+          apostila_stock_debited: Number(student.apostila_stock_debited || 0) === 1,
+          apostila_stock_debited_at: student.apostila_stock_debited_at || "",
           projection
         };
       })
@@ -1089,6 +1283,8 @@ app.put("/api/alunos/:id", async (req, res) => {
       updatedAt,
       req.params.id
     );
+
+    await syncApostilaReceipts(db);
 
     await registerAuditLog(db, {
       entityType: "student",
@@ -1665,6 +1861,310 @@ app.get("/api/progresso/:id", async (req, res) => {
   }
 });
 
+app.get("/api/apostilas", async (req, res) => {
+  try {
+    const db = await initDb();
+    const hasStudentRegistry = await db.get(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'student_registry'"
+    );
+
+    if (!hasStudentRegistry) {
+      return res.json({ summary: { eligibleCount: 0, receivedCount: 0, stockDebitedCount: 0, pendingDebitCount: 0, stockQuantity: 0, purchaseRequired: false, purchaseQuantity: 0 }, students: [] });
+    }
+
+    const stockItem = await getApostilaInventoryItem(db);
+    const students = await db.all(
+      `
+        SELECT
+          id,
+          student_name,
+          current_course,
+          current_lesson,
+          class_day,
+          class_time,
+          apostila_received,
+          apostila_received_at,
+          apostila_stock_debited,
+          apostila_stock_debited_at
+        FROM student_registry
+        WHERE CAST(COALESCE(current_lesson, 0) AS REAL) >= 5
+           OR COALESCE(apostila_received, 0) = 1
+        ORDER BY CAST(COALESCE(current_lesson, 0) AS REAL) DESC, student_name COLLATE NOCASE
+      `
+    );
+
+    const eligibleCount = students.filter((student) => normalizeNumber(student.current_lesson, 0) >= 5).length;
+    const receivedCount = students.filter((student) => Number(student.apostila_received || 0) === 1).length;
+    const stockDebitedCount = students.filter((student) => Number(student.apostila_stock_debited || 0) === 1).length;
+    const pendingDebitCount = Math.max(receivedCount - stockDebitedCount, 0);
+    const stockQuantity = stockItem ? normalizeNumber(stockItem.quantity, 0) : 0;
+
+    res.json({
+      summary: {
+        eligibleCount,
+        receivedCount,
+        stockDebitedCount,
+        pendingDebitCount,
+        stockQuantity,
+        purchaseRequired: pendingDebitCount > 0,
+        purchaseQuantity: pendingDebitCount
+      },
+      students: students.map((student) => ({
+        ...student,
+        current_lesson: normalizeNumber(student.current_lesson, 0),
+        current_course: student.current_course || "",
+        class_day: normalizeClassDay(student.class_day || ""),
+        class_time: parseClassTimeLabel(student.class_time || ""),
+        apostila_received: Number(student.apostila_received || 0) === 1,
+        apostila_received_at: student.apostila_received_at || "",
+        apostila_stock_debited: Number(student.apostila_stock_debited || 0) === 1,
+        apostila_stock_debited_at: student.apostila_stock_debited_at || ""
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/presencas", async (req, res) => {
+  try {
+    const classDay = String(req.query.classDay || "").trim();
+    const classTime = String(req.query.classTime || "").trim();
+    const sessionDate = normalizeDate(req.query.sessionDate || "");
+
+    if (!classDay || !classTime || !sessionDate) {
+      return res.status(400).json({ error: "classDay, classTime and sessionDate are required." });
+    }
+
+    const db = await initDb();
+    const session = await db.get(
+      `
+        SELECT *
+        FROM attendance_sessions
+        WHERE class_day = ? AND class_time = ? AND session_date = ?
+      `,
+      classDay,
+      classTime,
+      sessionDate
+    );
+
+    if (!session) {
+      return res.json({ session: null, records: [] });
+    }
+
+    const records = await db.all(
+      `
+        SELECT *
+        FROM attendance_records
+        WHERE session_id = ?
+        ORDER BY student_name COLLATE NOCASE
+      `,
+      session.id
+    );
+
+    res.json({ session, records });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/presencas", async (req, res) => {
+  try {
+    const changedBy = requireChangedBy(req, res);
+    if (!changedBy) return;
+
+    const classDay = String(req.body?.classDay || "").trim();
+    const classTime = String(req.body?.classTime || "").trim();
+    const sessionDate = normalizeDate(req.body?.sessionDate || "");
+    const recordsInput = Array.isArray(req.body?.records) ? req.body.records : [];
+
+    if (!classDay || !classTime || !sessionDate || !recordsInput.length) {
+      return res.status(400).json({ error: "classDay, classTime, sessionDate and records are required." });
+    }
+
+    const db = await initDb();
+    const recordStudentIds = recordsInput
+      .map((record) => String(record?.studentId || record?.student_id || "").trim())
+      .filter(Boolean);
+
+    let students = [];
+    if (recordStudentIds.length) {
+      const placeholders = recordStudentIds.map(() => "?").join(", ");
+      students = await db.all(
+        `
+          SELECT id, student_name, class_day, class_time
+          FROM student_registry
+          WHERE id IN (${placeholders})
+          ORDER BY student_name COLLATE NOCASE
+        `,
+        ...recordStudentIds
+      );
+    }
+
+    if (!students.length) {
+      students = await db.all(
+        `
+          SELECT id, student_name, class_day, class_time
+          FROM student_registry
+          WHERE LOWER(TRIM(class_day)) = LOWER(TRIM(?))
+            AND LOWER(TRIM(class_time)) = LOWER(TRIM(?))
+          ORDER BY student_name COLLATE NOCASE
+        `,
+        classDay,
+        classTime
+      );
+    }
+
+    const sessionId = createId("att");
+    const now = new Date().toISOString();
+    const existingSession = await db.get(
+      `
+        SELECT *
+        FROM attendance_sessions
+        WHERE class_day = ? AND class_time = ? AND session_date = ?
+      `,
+      classDay,
+      classTime,
+      sessionDate
+    );
+
+    const activeSessionId = existingSession ? existingSession.id : sessionId;
+
+    if (existingSession) {
+      await db.run(
+        `
+          UPDATE attendance_sessions
+          SET created_by = ?, updated_at = ?
+          WHERE id = ?
+        `,
+        changedBy,
+        now,
+        existingSession.id
+      );
+      await db.run("DELETE FROM attendance_records WHERE session_id = ?", existingSession.id);
+    } else {
+      await db.run(
+        `
+          INSERT INTO attendance_sessions (
+            id, class_day, class_time, session_date, created_by, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `,
+        activeSessionId,
+        classDay,
+        classTime,
+        sessionDate,
+        changedBy,
+        now,
+        now
+      );
+    }
+
+    const studentById = new Map(students.map((student) => [String(student.id), student]));
+    const savedRecords = [];
+
+    for (const record of recordsInput) {
+      const studentId = String(record?.studentId || "").trim();
+      const student = studentById.get(studentId);
+      if (!student) continue;
+
+      const normalizedStatus = normalizeAttendanceStatus(record?.status);
+      const notes = String(record?.notes || "").trim();
+
+      await db.run(
+        `
+          INSERT INTO attendance_records (
+            id, session_id, student_id, student_name, status, notes, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        createId("attrec"),
+        activeSessionId,
+        student.id,
+        student.student_name,
+        normalizedStatus,
+        notes,
+        now,
+        now
+      );
+
+      await db.run(
+        `
+          UPDATE student_registry
+          SET attendance_status = ?, updated_at = ?
+          WHERE id = ?
+        `,
+        attendanceStatusLabel(normalizedStatus),
+        now,
+        student.id
+      );
+
+      savedRecords.push({
+        studentId: student.id,
+        studentName: student.student_name,
+        status: normalizedStatus,
+        notes
+      });
+    }
+
+    await rebuildAttendanceStats(db);
+
+    await registerAuditLog(db, {
+      entityType: "attendance",
+      entityId: activeSessionId,
+      action: existingSession ? "UPDATE" : "CREATE",
+      changedBy,
+      changeSummary: `${classDay} ${classTime} em ${sessionDate}: ${savedRecords.length} registro(s)`
+    });
+
+    res.json({
+      sessionId: activeSessionId,
+      classDay,
+      classTime,
+      sessionDate,
+      records: savedRecords
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/presencas/historico", async (req, res) => {
+  try {
+    const db = await initDb();
+    const sessions = await db.all(
+      `
+        SELECT
+          s.id,
+          s.class_day,
+          s.class_time,
+          s.session_date,
+          s.created_by,
+          s.created_at,
+          s.updated_at,
+          COUNT(r.id) AS total_records,
+          SUM(CASE WHEN r.status = 'presence' THEN 1 ELSE 0 END) AS presences_count,
+          SUM(CASE WHEN r.status = 'absence' THEN 1 ELSE 0 END) AS absences_count,
+          SUM(CASE WHEN r.status = 'reposition' THEN 1 ELSE 0 END) AS repositions_count
+        FROM attendance_sessions s
+        LEFT JOIN attendance_records r ON r.session_id = s.id
+        GROUP BY s.id
+        ORDER BY s.session_date DESC, s.class_day ASC, s.class_time ASC
+      `
+    );
+
+    res.json(
+      sessions.map((session) => ({
+        ...session,
+        total_records: normalizeNumber(session.total_records, 0),
+        presences_count: normalizeNumber(session.presences_count, 0),
+        absences_count: normalizeNumber(session.absences_count, 0),
+        repositions_count: normalizeNumber(session.repositions_count, 0)
+      }))
+    );
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/api/auditoria", async (req, res) => {
   try {
     const db = await initDb();
@@ -1699,6 +2199,8 @@ app.post("/api/inventory", async (req, res) => {
       quantity,
       new Date().toISOString()
     );
+
+    await syncApostilaReceipts(db);
 
     res.json(item);
   } catch (error) {
