@@ -16,7 +16,7 @@ const totalMaterials = document.getElementById("totalMaterials");
 const totalQuantity = document.getElementById("totalQuantity");
 const totalWithdrawals = document.getElementById("totalWithdrawals");
 
-const API_BASE_URL = "http://192.168.10.66:3000/api"; // altere para o IP do servidor se ele mudar
+const API_BASE_URL = "http://192.168.10.66:3000/api";
 
 let store = {
   inventory: [],

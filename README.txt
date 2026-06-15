@@ -86,14 +86,44 @@ Turmas e agenda semanal
 - Ao mover um aluno, o sistema pede o horário e grava o dia/horário no banco.
 - O painel de alunos mostra o curso atual, a aula atual e avisos automáticos para apoiar a rotina.
 
+Como publicar no servidor da escola (192.168.10.66)
+----------------------------------------------------
+1. Copie a pasta do projeto para o servidor, por exemplo:
+   C:\Users\professor\Desktop\ControleEstoque
+
+2. Abra o CMD dentro da pasta e instale as dependências:
+   npm install
+
+3. Teste o servidor manualmente:
+   npm run server
+
+4. No navegador do próprio servidor, confirme que a API responde:
+   http://localhost:3000/api/inventory
+   (deve abrir um JSON)
+
+5. Para deixar o servidor rodando mesmo após fechar o CMD,
+   use o PM2 (gerenciador de processos para Node.js):
+
+   npm install -g pm2
+   pm2 start backend/server.js --name ControleApostilasServer
+   pm2 save
+
+   A partir daí pode fechar o CMD. O backend continua ativo.
+
+6. Para verificar se está rodando:
+   pm2 list
+
+7. Para parar o servidor:
+   pm2 stop ControleApostilasServer
+
+8. Teste de outros PCs na rede:
+   http://192.168.10.66:3000/api/inventory
+   Se responder JSON, os clientes já conseguem comunicar com o backend.
+
 Observações operacionais
 ------------------------
-- Em ambiente de rede/escola, prefira um backend centralizado.
-- Se mudar o endereço do servidor, ajuste API_BASE_URL_CANDIDATES em frontend/apostila-app.js.
+- O IP do servidor está fixado como 192.168.10.66. Se mudar, ajuste
+  a constante API_BASE_URL em frontend/apostila-app.js e frontend/app.js.
+- O banco de dados fica em data/database.sqlite no servidor. Não copie
+  o banco local sobre o banco do servidor sem backup.
 - Reinicie o app após mudanças de estrutura de páginas.
-
-Lembrete de pendências (não esquecer)
--------------------------------------
-- Completar cadastro de contato dos alunos ainda sem telefone e/ou responsável no banco.
-- Revisar divergências de horas e projeções usando o arquivo de validação em data/import/validacao-horas-anexo.tsv.
-- Reexecutar validação de contatos quando houver novo arquivo: node backend/update-contacts-from-doc.js.

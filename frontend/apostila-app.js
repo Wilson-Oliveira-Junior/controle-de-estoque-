@@ -1,10 +1,6 @@
 const STORAGE_KEY = "controleApostilas";
-const API_BASE_URL_CANDIDATES = [
-  "http://127.0.0.1:3000/api",
-  "http://localhost:3000/api",
-  "http://192.168.10.66:3000/api"
-];
-let activeApiBaseUrl = API_BASE_URL_CANDIDATES[0];
+
+const API_BASE_URL = "http://192.168.10.66:3000/api";
 
 const addForm = document.getElementById("addForm");
 const withdrawForm = document.getElementById("withdrawForm");
@@ -327,29 +323,26 @@ async function fetchJson(url, options) {
 }
 
 async function loadStore() {
-  for (const candidate of API_BASE_URL_CANDIDATES) {
-    try {
-      const [courses, students, controls, progress, holidays, vacations, audits, holidayRules, attendanceHistory, apostilas] = await Promise.all([
-        fetchJson(`${candidate}/cursos`, { cache: "no-store" }),
-        fetchJson(`${candidate}/alunos`, { cache: "no-store" }),
-        fetchJson(`${candidate}/controle`, { cache: "no-store" }),
-        fetchJson(`${candidate}/progresso`, { cache: "no-store" }),
-        fetchJson(`${candidate}/calendario/feriados`, { cache: "no-store" }),
-        fetchJson(`${candidate}/calendario/ferias`, { cache: "no-store" }),
-        fetchJson(`${candidate}/auditoria`, { cache: "no-store" }),
-        fetchJson(`${candidate}/calendario/feriados/regras`, { cache: "no-store" }),
-        fetchJson(`${candidate}/presencas/historico`, { cache: "no-store" }),
-        fetchJson(`${candidate}/apostilas`, { cache: "no-store" })
-      ]);
+  try {
+    const [courses, students, controls, progress, holidays, vacations, audits, holidayRules, attendanceHistory, apostilas] = await Promise.all([
+      fetchJson(`${API_BASE_URL}/cursos`, { cache: "no-store" }),
+      fetchJson(`${API_BASE_URL}/alunos`, { cache: "no-store" }),
+      fetchJson(`${API_BASE_URL}/controle`, { cache: "no-store" }),
+      fetchJson(`${API_BASE_URL}/progresso`, { cache: "no-store" }),
+      fetchJson(`${API_BASE_URL}/calendario/feriados`, { cache: "no-store" }),
+      fetchJson(`${API_BASE_URL}/calendario/ferias`, { cache: "no-store" }),
+      fetchJson(`${API_BASE_URL}/auditoria`, { cache: "no-store" }),
+      fetchJson(`${API_BASE_URL}/calendario/feriados/regras`, { cache: "no-store" }),
+      fetchJson(`${API_BASE_URL}/presencas/historico`, { cache: "no-store" }),
+      fetchJson(`${API_BASE_URL}/apostilas`, { cache: "no-store" })
+    ]);
 
-      activeApiBaseUrl = candidate;
-      store = { courses, students, controls, progress, holidays, vacations, audits, holidayRules, attendanceHistory, apostilas };
-      saveStore();
-      setServerStatus(true, `Servidor conectado (${candidate}).`);
-      return true;
-    } catch {
-      // Try the next API candidate.
-    }
+    store = { courses, students, controls, progress, holidays, vacations, audits, holidayRules, attendanceHistory, apostilas };
+    saveStore();
+    setServerStatus(true, "Servidor conectado (192.168.10.66).");
+    return true;
+  } catch {
+    // Fallback para uso local quando o servidor não responder.
   }
 
   loadLocalStore();
