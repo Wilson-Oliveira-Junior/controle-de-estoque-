@@ -740,6 +740,23 @@ body {
   max-width: 100%;
 }
 
+.table-wrap {
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+#studentsTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #eff4fb;
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.table-wrap table {
+  border-radius: 0;
+}
+
 #studentsTable {
   width: max-content;
   min-width: 100%;
